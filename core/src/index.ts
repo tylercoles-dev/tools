@@ -11,6 +11,9 @@ export * from './services/memory-processing/index.js';
 export * from './services/wiki/index.js';
 export * from './services/scraper/index.js';
 
+// Export shared types
+export * from './shared/types/index.js';
+
 // Export shared utilities with explicit naming to avoid conflicts
 export type { 
   DatabaseConfig as CoreDatabaseConfig 
@@ -22,3 +25,5 @@ export {
   ValidationError as CoreValidationError,
   validateInput 
 } from './utils/validation.js';
+
+// Note: shared types are exported separately to avoid naming conflicts

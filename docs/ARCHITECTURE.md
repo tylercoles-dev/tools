@@ -7,7 +7,7 @@ A comprehensive multi-server MCP (Model Context Protocol) ecosystem designed to 
 📋 **Related Documentation**:
 - [Detailed MCP Server Components](MCP_SERVER_DETAILS.md)
 - [Backend Integration Layer](BACKEND_INTEGRATION.md)
-- [Rust Background Workers](RUST_WORKERS.md)
+- Background Workers (now TypeScript-based)
 - [Web Client Architecture](WEB_CLIENT_ARCHITECTURE.md)
 - [Data Flow Diagrams](DATA_FLOW_DIAGRAMS.md)
 - [API Specifications](API_SPECIFICATIONS.md)
@@ -35,9 +35,9 @@ graph TB
     end
     
     subgraph "Background Processing"
-        WORKER1[Vector Indexing Worker<br/>Rust]
-        WORKER2[Relationship Worker<br/>Rust]
-        WORKER3[Sync Worker<br/>Rust]
+        WORKER1[Embeddings Worker<br/>TypeScript]
+        WORKER2[Memory Processing<br/>TypeScript]
+        WORKER3[Markitdown Worker<br/>TypeScript]
     end
     
     subgraph "Data Layer"
@@ -329,8 +329,8 @@ services:
     ports: ["3010:3010"]
   
   # Background Workers
-  vector-worker:
-    build: ./workers/vector
+  embeddings-worker:
+    build: ./workers/embeddings
     
   relationship-worker:
     build: ./workers/relationship

@@ -1,24 +1,51 @@
 /**
  * Type definitions for the embeddings worker
+ * Uses shared types from core package where possible
  */
 
 import { z } from 'zod';
 
-// Configuration schemas
-export const WorkerConfigSchema = z.object({
-  // NATS Configuration
-  natsUrl: z.string().url().default('nats://localhost:4222'),
-  
+// Re-export shared embedding types from core
+export {
+  type EmbeddingRequest,
+  type EmbeddingResponse,
+  type EmbeddingError,
+  EmbeddingRequestSchema,
+  EmbeddingResponseSchema,
+  EmbeddingErrorSchema,
+  type EmbeddingProviderConfig,
+  EmbeddingProviderConfigSchema,
+  type EmbeddingBatchRequest,
+  type EmbeddingBatchResponse,
+  EmbeddingBatchRequestSchema,
+  EmbeddingBatchResponseSchema,
+} from '@mcp-tools/core/shared';
+
+// Re-export shared worker types from core
+export {
+  type BaseWorkerConfig,
+  BaseWorkerConfigSchema,
+  type WorkerStatus,
+  WorkerStatusSchema,
+  type WorkerMetrics,
+  WorkerMetricsSchema,
+  type WorkerEvent,
+  WorkerEventSchema,
+  WorkerError,
+  WorkerConfigurationError,
+  WorkerConnectionError,
+  WORKER_SUBJECTS,
+} from '@mcp-tools/core/shared';
+
+// Worker-specific configuration extending base config
+export const EmbeddingsWorkerConfigSchema = BaseWorkerConfigSchema.extend({
   // Legacy fields (kept for compatibility but not used)
   qdrantUrl: z.string().url().default('http://localhost:6333'),
   collectionName: z.string().default('memories'),
   
-  // Worker Configuration
-  workerName: z.string().default('embeddings-worker'),
+  // Worker-specific configuration
   batchSize: z.number().int().min(1).max(100).default(32),
   maxRetries: z.number().int().min(1).max(10).default(3),
-  logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-  healthCheckInterval: z.number().int().min(1000).default(30000),
   
   // Embedding Provider Configuration
   embeddingProvider: z.enum(['ollama', 'openai']).default('ollama'),
@@ -33,39 +60,13 @@ export const WorkerConfigSchema = z.object({
     .default('text-embedding-3-small'),
 });
 
-export type WorkerConfig = z.infer<typeof WorkerConfigSchema>;
+export type EmbeddingsWorkerConfig = z.infer<typeof EmbeddingsWorkerConfigSchema>;
 
-// Embedding request/response schemas
-export const EmbeddingRequestSchema = z.object({
-  id: z.string(),
-  text: z.string(),
-  user_id: z.string().optional(),
-  request_id: z.string(),
-});
-
-export type EmbeddingRequest = z.infer<typeof EmbeddingRequestSchema>;
-
-export const EmbeddingResponseSchema = z.object({
-  request_id: z.string(),
-  embedding: z.array(z.number()),
-  dimension: z.number(),
-  processing_time_ms: z.number(),
-});
-
-export type EmbeddingResponse = z.infer<typeof EmbeddingResponseSchema>;
-
-// Worker stats
-export interface WorkerStats {
-  totalRequests: number;
+// Worker stats extending base metrics
+export interface EmbeddingsWorkerStats extends WorkerMetrics {
+  // Embedding-specific metrics
   successfulEmbeddings: number;
   failedEmbeddings: number;
-  averageProcessingTime: number;
-  uptime: number;
-  memoryUsage: {
-    heapUsed: number;
-    heapTotal: number;
-    external: number;
-  };
   batchesProcessed: number;
   memoriesProcessed: number;
   relationshipsDetected: number;
@@ -79,28 +80,16 @@ export interface EmbeddingProvider {
   getModelName(): string;
 }
 
-// Error types
-export class EmbeddingError extends Error {
+// Embedding-specific error extending base worker error
+export class EmbeddingProviderError extends WorkerError {
   constructor(
     message: string,
-    public code: string,
     public provider: string,
     public statusCode?: number,
-    public originalError?: Error
+    workerId?: string,
+    originalError?: Error
   ) {
-    super(message);
-    this.name = 'EmbeddingError';
-  }
-}
-
-
-export class WorkerError extends Error {
-  constructor(
-    message: string,
-    public component: string,
-    public originalError?: Error
-  ) {
-    super(message);
-    this.name = 'WorkerError';
+    super(message, 'EMBEDDING_PROVIDER_ERROR', workerId, originalError);
+    this.name = 'EmbeddingProviderError';
   }
 }

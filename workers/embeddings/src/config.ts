@@ -3,12 +3,12 @@
  */
 
 import { config } from 'dotenv';
-import { WorkerConfigSchema, type WorkerConfig } from './types.js';
+import { EmbeddingsWorkerConfigSchema, type EmbeddingsWorkerConfig } from './types.js';
 
 // Load environment variables
 config();
 
-export function loadConfig(): WorkerConfig {
+export function loadConfig(): EmbeddingsWorkerConfig {
   const rawConfig = {
     // NATS Configuration
     natsUrl: process.env.NATS_URL,
@@ -37,10 +37,10 @@ export function loadConfig(): WorkerConfig {
   };
 
   // Validate and return config with defaults
-  return WorkerConfigSchema.parse(rawConfig);
+  return EmbeddingsWorkerConfigSchema.parse(rawConfig);
 }
 
-export function validateConfig(config: WorkerConfig): void {
+export function validateConfig(config: EmbeddingsWorkerConfig): void {
   // Additional validation beyond Zod schema
   if (config.embeddingProvider === 'openai' && !config.openaiApiKey) {
     throw new Error('OPENAI_API_KEY environment variable is required when using OpenAI provider');

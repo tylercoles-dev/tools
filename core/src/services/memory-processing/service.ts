@@ -5,6 +5,7 @@
  */
 
 import { NatsConnection, JSONCodec } from 'nats';
+import { EmbeddingRequest, EmbeddingResponse } from '../../shared/types/index.js';
 import { ContentAnalyzer } from './analysis/content-analyzer.js';
 import { RelationshipDetector } from './relationships/detector.js';
 import type { 
@@ -185,7 +186,7 @@ export class MemoryProcessingService {
     }
 
     try {
-      const request = {
+      const request: EmbeddingRequest = {
         id: `memory-processing-${Date.now()}`,
         text,
         request_id: `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -197,7 +198,7 @@ export class MemoryProcessingService {
         { timeout: 30000 } // 30 second timeout
       );
 
-      const embeddingResponse = this.jsonCodec.decode(response.data) as any;
+      const embeddingResponse = this.jsonCodec.decode(response.data) as EmbeddingResponse;
       
       if (embeddingResponse.error) {
         throw new Error(embeddingResponse.error);

@@ -29,6 +29,10 @@
     "./scraper": {
       "import": "./dist/services/scraper/index.js",
       "types": "./dist/services/scraper/index.d.ts"
+    },
+    "./shared": {
+      "import": "./dist/shared/types/index.js",
+      "types": "./dist/shared/types/index.d.ts"
     }
   },
   "files": [

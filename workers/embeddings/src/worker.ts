@@ -8,21 +8,21 @@
 import { connect, NatsConnection, JSONCodec } from 'nats';
 import { createLogger, format, transports } from 'winston';
 import type { 
-  WorkerConfig, 
+  EmbeddingsWorkerConfig, 
   EmbeddingRequest, 
   EmbeddingResponse, 
-  WorkerStats,
+  EmbeddingsWorkerStats,
   EmbeddingProvider 
 } from './types.js';
 import { createEmbeddingProvider } from './providers/index.js';
-import { EmbeddingError } from './types.js';
+import { EmbeddingProviderError } from './types.js';
 
 export class EmbeddingsWorker {
   private natsConnection?: NatsConnection;
   private embeddingProvider: EmbeddingProvider;
   private logger;
   private startTime = Date.now();
-  private config: WorkerConfig;
+  private config: EmbeddingsWorkerConfig;
   private jsonCodec = JSONCodec();
   
   // Statistics
@@ -33,7 +33,7 @@ export class EmbeddingsWorker {
     totalProcessingTime: 0,
   };
 
-  constructor(config: WorkerConfig) {
+  constructor(config: EmbeddingsWorkerConfig) {
     this.config = config;
     this.embeddingProvider = createEmbeddingProvider(config);
     

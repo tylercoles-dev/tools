@@ -14,7 +14,7 @@ The repository contains detailed architectural documentation:
 - `API_SPECIFICATIONS.md` - Complete API schemas and interface definitions
 - `MCP_SERVER_DETAILS.md` - Detailed TypeScript implementation designs for MCP servers
 - `BACKEND_INTEGRATION.md` - Database and backend service integration patterns  
-- `RUST_WORKERS.md` - Background worker architecture in Rust
+- Background worker architecture now implemented in TypeScript
 - `WEB_CLIENT_ARCHITECTURE.md` - React/Next.js frontend design
 - `DATA_FLOW_DIAGRAMS.md` - System data flow documentation
 - `FUTURE_SERVICES.md` - Roadmap for additional services
@@ -30,10 +30,10 @@ The repository contains detailed architectural documentation:
 - **API Gateway** (TypeScript/Express) - Unified REST API and WebSocket server
 - **NATS Message Broker** - Async communication between servers and workers
 
-### Background Workers (Rust)
-- **Vector Indexing Worker** - Processes content for Qdrant vector embeddings
-- **Relationship Worker** - Analyzes content for semantic relationships
-- **Sync Worker** - Data synchronization tasks
+### Background Workers (TypeScript)
+- **Embeddings Worker** - Generates vector embeddings via Ollama/OpenAI APIs
+- **Memory Processing Service** - Analyzes content and detects relationships
+- **Markitdown Worker** - Document conversion and processing
 
 ### Data Layer
 - **Qdrant Vector Database** - Semantic search and embeddings

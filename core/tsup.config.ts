@@ -7,7 +7,8 @@ export default defineConfig({
     'src/services/memory/index.ts',
     'src/services/memory-processing/index.ts',
     'src/services/wiki/index.ts',
-    'src/services/scraper/index.ts'
+    'src/services/scraper/index.ts',
+    'src/shared/types/index.ts'
   ],
   format: ['esm'],
   target: 'node18',
