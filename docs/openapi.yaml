@@ -1,0 +1,1162 @@
+openapi: 3.0.3
+info:
+  title: MCP Tools API
+  description: |
+    RESTful API for the MCP Tools ecosystem providing unified access to
+    Kanban boards, Memory graph, Wiki pages, Calendar events, and Monitoring.
+  version: 1.0.0
+  contact:
+    name: MCP Tools Team
+    url: https://github.com/your-org/mcp-tools
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.mcp-tools.dev/v1
+    description: Production server
+  - url: http://localhost:3001/v1
+    description: Local development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Kanban API
+  /kanban/boards:
+    get:
+      tags: [Kanban]
+      summary: List boards
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, created_at, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of boards
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/BoardSummary'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+    post:
+      tags: [Kanban]
+      summary: Create board
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBoardRequest'
+      responses:
+        '201':
+          description: Board created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Board'
+
+  /kanban/boards/{boardId}:
+    get:
+      tags: [Kanban]
+      summary: Get board with columns and cards
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include_archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Board details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/BoardWithColumns'
+
+  /kanban/cards:
+    post:
+      tags: [Kanban]
+      summary: Create card
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCardRequest'
+      responses:
+        '201':
+          description: Card created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Card'
+
+  /kanban/cards/{cardId}:
+    put:
+      tags: [Kanban]
+      summary: Update card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCardRequest'
+      responses:
+        '200':
+          description: Card updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Card'
+    delete:
+      tags: [Kanban]
+      summary: Delete card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Card deleted
+
+  /kanban/cards/{cardId}/move:
+    put:
+      tags: [Kanban]
+      summary: Move card
+      parameters:
+        - name: cardId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveCardRequest'
+      responses:
+        '200':
+          description: Card moved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Card'
+
+  # Memory API
+  /memory/memories:
+    get:
+      tags: [Memory]
+      summary: List memories
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: project_name
+          in: query
+          schema:
+            type: string
+        - name: concepts
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: importance
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+        - name: created_after
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: created_before
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: List of memories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Memory'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+    post:
+      tags: [Memory]
+      summary: Store memory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemoryRequest'
+      responses:
+        '201':
+          description: Memory stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Memory'
+
+  /memory/memories/search:
+    get:
+      tags: [Memory]
+      summary: Semantic search memories
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+        - name: similarity_threshold
+          in: query
+          schema:
+            type: number
+            format: float
+            default: 0.7
+            minimum: 0
+            maximum: 1
+        - name: include_related
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: max_depth
+          in: query
+          schema:
+            type: integer
+            default: 2
+            minimum: 1
+            maximum: 5
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: project_name
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MemorySearchResults'
+
+  /memory/memories/{memoryId}/related:
+    get:
+      tags: [Memory]
+      summary: Get related memories
+      parameters:
+        - name: memoryId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: max_depth
+          in: query
+          schema:
+            type: integer
+            default: 2
+        - name: min_strength
+          in: query
+          schema:
+            type: number
+            format: float
+            default: 0.5
+        - name: relationship_types
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Related memories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/RelatedMemories'
+
+  /memory/graph:
+    get:
+      tags: [Memory]
+      summary: Get memory graph data
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: project_name
+          in: query
+          schema:
+            type: string
+        - name: concept
+          in: query
+          schema:
+            type: string
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: Memory graph data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MemoryGraph'
+
+  /memory/connections:
+    post:
+      tags: [Memory]
+      summary: Create memory connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateConnectionRequest'
+      responses:
+        '201':
+          description: Connection created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MemoryConnection'
+
+  /memory/stats:
+    get:
+      tags: [Memory]
+      summary: Get memory statistics
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: project_name
+          in: query
+          schema:
+            type: string
+        - name: date_range
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 1y]
+      responses:
+        '200':
+          description: Memory statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MemoryStats'
+
+  # Wiki API
+  /wiki/pages:
+    get:
+      tags: [Wiki]
+      summary: List wiki pages
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/limit'
+        - name: category_id
+          in: query
+          schema:
+            type: string
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [title, created_at, updated_at]
+            default: updated_at
+      responses:
+        '200':
+          description: List of wiki pages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WikiPageSummary'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+    post:
+      tags: [Wiki]
+      summary: Create wiki page
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWikiPageRequest'
+      responses:
+        '201':
+          description: Wiki page created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WikiPage'
+
+  /wiki/pages/{pageId}:
+    get:
+      tags: [Wiki]
+      summary: Get wiki page
+      parameters:
+        - name: pageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wiki page details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WikiPage'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            requestId:
+              type: string
+          required: [timestamp, requestId]
+      required: [meta]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+          required: [code, message]
+        meta:
+          type: object
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            requestId:
+              type: string
+          required: [timestamp, requestId]
+      required: [error, meta]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrev:
+          type: boolean
+      required: [page, limit, total, hasNext, hasPrev]
+
+    # Kanban Schemas
+    BoardSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        columns_count:
+          type: integer
+        cards_count:
+          type: integer
+      required: [id, name, color, created_at, updated_at, columns_count, cards_count]
+
+    Board:
+      allOf:
+        - $ref: '#/components/schemas/BoardSummary'
+
+    BoardWithColumns:
+      allOf:
+        - $ref: '#/components/schemas/Board'
+        - type: object
+          properties:
+            columns:
+              type: array
+              items:
+                $ref: '#/components/schemas/ColumnWithCards'
+
+    ColumnWithCards:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        position:
+          type: integer
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/Card'
+      required: [id, name, color, position, cards]
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        assigned_to:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        due_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        position:
+          type: integer
+      required: [id, title, priority, created_at, updated_at, position]
+
+    CreateBoardRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          default: '#6366f1'
+      required: [name]
+
+    CreateCardRequest:
+      type: object
+      properties:
+        board_id:
+          type: string
+        column_id:
+          type: string
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        assigned_to:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        due_date:
+          type: string
+          format: date-time
+        position:
+          type: integer
+          default: 0
+      required: [board_id, column_id, title]
+
+    UpdateCardRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        assigned_to:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        due_date:
+          type: string
+          format: date-time
+
+    MoveCardRequest:
+      type: object
+      properties:
+        column_id:
+          type: string
+        position:
+          type: integer
+          minimum: 0
+      required: [column_id, position]
+
+    # Memory Schemas
+    Memory:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        content_hash:
+          type: string
+        context:
+          type: object
+          properties:
+            source:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            participants:
+              type: array
+              items:
+                type: string
+            tags:
+              type: array
+              items:
+                type: string
+            userId:
+              type: string
+            projectName:
+              type: string
+          additionalProperties: true
+        concepts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Concept'
+        importance:
+          type: integer
+          minimum: 1
+          maximum: 5
+        status:
+          type: string
+          enum: [active, archived, merged]
+        access_count:
+          type: integer
+        last_accessed_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, content, content_hash, context, concepts, importance, status, access_count, created_at, updated_at]
+
+    Concept:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [entity, topic, skill, project, person, custom]
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+      required: [id, name, type, confidence]
+
+    CreateMemoryRequest:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+        context:
+          type: object
+          additionalProperties: true
+        concepts:
+          type: array
+          items:
+            type: string
+        importance:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 1
+      required: [content, context]
+
+    MemorySearchResults:
+      type: object
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Memory'
+        total:
+          type: integer
+        processing_time_ms:
+          type: integer
+        related_concepts:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              relevance:
+                type: number
+                format: float
+            required: [name, relevance]
+      required: [memories, total, processing_time_ms]
+
+    RelatedMemories:
+      type: object
+      properties:
+        center_memory:
+          $ref: '#/components/schemas/Memory'
+        related_nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              memory:
+                $ref: '#/components/schemas/Memory'
+              relationship:
+                $ref: '#/components/schemas/MemoryConnection'
+              distance:
+                type: integer
+            required: [memory, relationship, distance]
+        clusters:
+          type: array
+          items:
+            type: object
+        concepts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Concept'
+      required: [center_memory, related_nodes, clusters, concepts]
+
+    MemoryGraph:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              type:
+                type: string
+                enum: [memory, concept]
+              data:
+                type: object
+            required: [id, type, data]
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              target:
+                type: string
+              type:
+                type: string
+              strength:
+                type: number
+                format: float
+            required: [source, target, type, strength]
+      required: [nodes, edges]
+
+    MemoryConnection:
+      type: object
+      properties:
+        id:
+          type: string
+        source_id:
+          type: string
+        target_id:
+          type: string
+        relationship_type:
+          type: string
+          enum: [semantic_similarity, causal, temporal, conceptual, custom]
+        strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        bidirectional:
+          type: boolean
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, source_id, target_id, relationship_type, strength, bidirectional, metadata, created_at, updated_at]
+
+    CreateConnectionRequest:
+      type: object
+      properties:
+        source_id:
+          type: string
+        target_id:
+          type: string
+        relationship_type:
+          type: string
+          enum: [semantic_similarity, causal, temporal, conceptual, custom]
+        strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 1.0
+        metadata:
+          type: object
+          default: {}
+        bidirectional:
+          type: boolean
+          default: false
+      required: [source_id, target_id, relationship_type]
+
+    MemoryStats:
+      type: object
+      properties:
+        total_memories:
+          type: integer
+        total_relationships:
+          type: integer
+        total_concepts:
+          type: integer
+        average_importance:
+          type: number
+          format: float
+        most_active_users:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: string
+              count:
+                type: integer
+            required: [user_id, count]
+        top_projects:
+          type: array
+          items:
+            type: object
+            properties:
+              project_name:
+                type: string
+              count:
+                type: integer
+            required: [project_name, count]
+        concept_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+      required: [total_memories, total_relationships, total_concepts, average_importance, most_active_users, top_projects, concept_distribution]
+
+    # Wiki Schemas
+    WikiPageSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+        category:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+          required: [id, name, slug]
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              color:
+                type: string
+            required: [id, name, color]
+        author_id:
+          type: string
+        published:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+      required: [id, title, slug, author_id, published, created_at, updated_at, version]
+
+    WikiPage:
+      allOf:
+        - $ref: '#/components/schemas/WikiPageSummary'
+        - type: object
+          properties:
+            content:
+              type: string
+            html_content:
+              type: string
+            table_of_contents:
+              type: array
+              items:
+                type: object
+                properties:
+                  level:
+                    type: integer
+                  title:
+                    type: string
+                  anchor:
+                    type: string
+                required: [level, title, anchor]
+          required: [content]
+
+    CreateWikiPageRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        content:
+          type: string
+          minLength: 1
+        category_id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        published:
+          type: boolean
+          default: true
+      required: [title, content]

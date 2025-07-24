@@ -1,0 +1,37 @@
+{
+  "name": "mcp-tools-markitdown-worker",
+  "version": "1.0.0",
+  "description": "MarkItDown worker for converting documents to markdown via NATS",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "markitdown",
+    "markdown",
+    "nats",
+    "worker",
+    "document-conversion"
+  ],
+  "author": "MCP Tools Team",
+  "license": "MIT",
+  "dependencies": {
+    "nats": "^2.29.3",
+    "markitdown": "^0.1.0",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
