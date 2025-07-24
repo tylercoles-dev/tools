@@ -7,6 +7,7 @@
 // Export all service modules
 export * from './services/kanban/index.js';
 export * from './services/memory/index.js';
+export * from './services/memory-processing/index.js';
 export * from './services/wiki/index.js';
 export * from './services/scraper/index.js';
 

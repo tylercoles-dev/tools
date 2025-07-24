@@ -1,0 +1,40 @@
+{
+  "name": "mcp-tools-embeddings-worker",
+  "version": "1.0.0",
+  "description": "TypeScript embeddings worker for generating vector embeddings via NATS",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "embeddings",
+    "vector",
+    "nats",
+    "worker",
+    "ollama",
+    "openai",
+    "typescript"
+  ],
+  "author": "MCP Tools Team",
+  "license": "MIT",
+  "dependencies": {
+    "nats": "^2.29.3",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1",
+    "zod": "^3.22.4",
+    "openai": "^4.52.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

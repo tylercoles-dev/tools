@@ -18,6 +18,10 @@
       "import": "./dist/services/memory/index.js",
       "types": "./dist/services/memory/index.d.ts"
     },
+    "./memory-processing": {
+      "import": "./dist/services/memory-processing/index.js",
+      "types": "./dist/services/memory-processing/index.d.ts"
+    },
     "./wiki": {
       "import": "./dist/services/wiki/index.js",
       "types": "./dist/services/wiki/index.d.ts"

@@ -5,6 +5,7 @@ export default defineConfig({
     'src/index.ts',
     'src/services/kanban/index.ts',
     'src/services/memory/index.ts',
+    'src/services/memory-processing/index.ts',
     'src/services/wiki/index.ts',
     'src/services/scraper/index.ts'
   ],
