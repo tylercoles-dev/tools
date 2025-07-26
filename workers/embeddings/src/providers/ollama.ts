@@ -3,7 +3,7 @@
  */
 
 import { BaseEmbeddingProvider } from './base.js';
-import { EmbeddingError } from '../types.js';
+import { EmbeddingProviderError } from '../types.js';
 
 export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
   protected modelName: string;
@@ -40,9 +40,8 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
       });
 
       if (!response.ok) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `Ollama API returned ${response.status}: ${response.statusText}`,
-          'OLLAMA_API_ERROR',
           'ollama',
           response.status
         );
@@ -51,9 +50,8 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
       const data = await response.json();
       
       if (!data.embedding || !Array.isArray(data.embedding)) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           'Invalid response format from Ollama API',
-          'INVALID_RESPONSE',
           'ollama'
         );
       }
@@ -67,9 +65,8 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
 
       // Validate dimension
       if (embedding.length !== this.dimension) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `Embedding dimension mismatch: expected ${this.dimension}, got ${embedding.length}`,
-          'DIMENSION_MISMATCH',
           'ollama'
         );
       }
@@ -80,24 +77,24 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
       return embedding;
 
     } catch (error) {
-      if (error instanceof EmbeddingError) {
+      if (error instanceof EmbeddingProviderError) {
         throw error;
       }
 
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `Failed to connect to Ollama at ${this.baseUrl}`,
-          'CONNECTION_ERROR',
           'ollama',
+          undefined,
           undefined,
           error
         );
       }
 
-      throw new EmbeddingError(
+      throw new EmbeddingProviderError(
         `Unexpected error generating embedding: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'UNKNOWN_ERROR',
         'ollama',
+        undefined,
         undefined,
         error instanceof Error ? error : undefined
       );
@@ -163,11 +160,7 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
       });
 
       if (!response.ok) {
-        throw new EmbeddingError(
-          `Failed to pull model ${this.modelName}: ${response.status} ${response.statusText}`,
-          'MODEL_PULL_ERROR',
-          'ollama',
-          response.status
+        throw new EmbeddingProviderError(`Failed to pull model ${this.modelName}: ${response.status} ${response.statusText}`, 'ollama', response.status
         );
       }
 
@@ -196,14 +189,14 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
       }
 
     } catch (error) {
-      if (error instanceof EmbeddingError) {
+      if (error instanceof EmbeddingProviderError) {
         throw error;
       }
 
-      throw new EmbeddingError(
+      throw new EmbeddingProviderError(
         `Failed to pull model: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'MODEL_PULL_ERROR',
         'ollama',
+        undefined,
         undefined,
         error instanceof Error ? error : undefined
       );

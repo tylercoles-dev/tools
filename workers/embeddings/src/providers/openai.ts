@@ -4,7 +4,7 @@
 
 import OpenAI from 'openai';
 import { BaseEmbeddingProvider } from './base.js';
-import { EmbeddingError } from '../types.js';
+import { EmbeddingProviderError } from '../types.js';
 
 export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
   protected modelName: string;
@@ -25,11 +25,7 @@ export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
     
     this.dimension = OpenAIEmbeddingProvider.MODEL_DIMENSIONS[modelName];
     if (!this.dimension) {
-      throw new EmbeddingError(
-        `Unknown OpenAI model: ${modelName}`,
-        'UNKNOWN_MODEL',
-        'openai'
-      );
+      throw new EmbeddingProviderError(`Unknown OpenAI model: ${modelName}`, 'openai');
     }
   }
 
@@ -52,20 +48,15 @@ export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
       });
 
       if (!response.data || response.data.length === 0) {
-        throw new EmbeddingError(
-          'No embedding data returned from OpenAI API',
-          'EMPTY_RESPONSE',
-          'openai'
-        );
+        throw new EmbeddingProviderError('No embedding data returned from OpenAI API', 'openai');
       }
 
       const embedding = response.data[0].embedding;
 
       // Validate dimension
       if (embedding.length !== this.dimension) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `Embedding dimension mismatch: expected ${this.dimension}, got ${embedding.length}`,
-          'DIMENSION_MISMATCH',
           'openai'
         );
       }
@@ -76,45 +67,45 @@ export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
       return embedding;
 
     } catch (error) {
-      if (error instanceof EmbeddingError) {
+      if (error instanceof EmbeddingProviderError) {
         throw error;
       }
 
       // Handle OpenAI-specific errors
       if (error instanceof OpenAI.APIError) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `OpenAI API error: ${error.message}`,
-          error.code || 'API_ERROR',
           'openai',
           error.status,
+          undefined,
           error
         );
       }
 
       if (error instanceof OpenAI.RateLimitError) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           'OpenAI API rate limit exceeded',
-          'RATE_LIMIT',
           'openai',
           429,
+          undefined,
           error
         );
       }
 
       if (error instanceof OpenAI.AuthenticationError) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           'OpenAI API authentication failed - check your API key',
-          'AUTH_ERROR',
           'openai',
           401,
+          undefined,
           error
         );
       }
 
-      throw new EmbeddingError(
+      throw new EmbeddingProviderError(
         `Unexpected error generating embedding: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'UNKNOWN_ERROR',
         'openai',
+        undefined,
         undefined,
         error instanceof Error ? error : undefined
       );
@@ -135,9 +126,8 @@ export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
       });
 
       if (!response.data || response.data.length !== texts.length) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `Expected ${texts.length} embeddings, got ${response.data?.length || 0}`,
-          'BATCH_SIZE_MISMATCH',
           'openai'
         );
       }
@@ -154,27 +144,27 @@ export class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
       return embeddings;
 
     } catch (error) {
-      if (error instanceof EmbeddingError) {
+      if (error instanceof EmbeddingProviderError) {
         throw error;
       }
 
       // Handle OpenAI-specific errors
       if (error instanceof OpenAI.APIError) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           `OpenAI API batch error: ${error.message}`,
-          error.code || 'API_ERROR',
           'openai',
           error.status,
+          undefined,
           error
         );
       }
 
       if (error instanceof OpenAI.RateLimitError) {
-        throw new EmbeddingError(
+        throw new EmbeddingProviderError(
           'OpenAI API rate limit exceeded during batch processing',
-          'RATE_LIMIT',
           'openai',
           429,
+          undefined,
           error
         );
       }

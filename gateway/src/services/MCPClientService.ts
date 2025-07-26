@@ -7,37 +7,14 @@
 
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-
-interface MCPServerConfig {
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-}
-
-interface MCPToolCall {
-  name: string;
-  arguments: Record<string, any>;
-}
-
-interface MCPToolResult {
-  content: Array<{
-    type: string;
-    text: string;
-  }>;
-  isError?: boolean;
-}
-
-interface MCPResourceRequest {
-  uri: string;
-}
-
-interface MCPResourceResult {
-  contents: Array<{
-    uri: string;
-    mimeType: string;
-    text: string;
-  }>;
-}
+import { 
+  MCPServerConfig, 
+  MCPToolCall, 
+  MCPToolResult, 
+  MCPResourceRequest, 
+  MCPResourceResult,
+  MCPServerStatus
+} from '@mcp-tools/core/dist/shared/types/index.js';
 
 class MCPConnection extends EventEmitter {
   private process: ChildProcess | null = null;
@@ -64,7 +41,7 @@ class MCPConnection extends EventEmitter {
         env: { ...process.env, ...this.config.env }
       });
       
-      if (!this.process || !this.process.stdout || !this.process.stdin) {
+      if (!this.process?.stdout || !this.process?.stdin) {
         reject(new Error(`Failed to spawn MCP server: ${this.name}`));
         return;
       }
@@ -223,7 +200,7 @@ class MCPConnection extends EventEmitter {
     }
     
     // Reject all pending requests
-    for (const [id, request] of this.pendingRequests) {
+    for (const request of Array.from(this.pendingRequests.values())) {
       clearTimeout(request.timeout);
       request.reject(new Error(`Connection to ${this.name} closed`));
     }
@@ -302,10 +279,10 @@ export class MCPClientService {
     return this.connections.has(serverName);
   }
   
-  async getServerStatus(): Promise<Record<string, { connected: boolean; tools: number; resources: number }>> {
-    const status: Record<string, { connected: boolean; tools: number; resources: number }> = {};
+  async getServerStatus(): Promise<Record<string, MCPServerStatus>> {
+    const status: Record<string, MCPServerStatus> = {};
     
-    for (const [name, connection] of this.connections) {
+    for (const [name, connection] of Array.from(this.connections.entries())) {
       try {
         const [tools, resources] = await Promise.all([
           connection.listTools(),
@@ -332,7 +309,7 @@ export class MCPClientService {
   shutdown(): void {
     console.log('Shutting down MCP Client Service...');
     
-    for (const [name, connection] of this.connections) {
+    for (const [name, connection] of Array.from(this.connections.entries())) {
       console.log(`Disconnecting from ${name}...`);
       connection.disconnect();
     }

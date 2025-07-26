@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { BaseWorkerConfigSchema, type WorkerMetrics, WorkerError } from '@mcp-tools/core/shared';
 
 // Re-export shared embedding types from core
 export {

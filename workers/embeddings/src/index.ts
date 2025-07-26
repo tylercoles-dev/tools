@@ -9,7 +9,7 @@
 
 import { EmbeddingsWorker } from './worker.js';
 import { loadConfig, validateConfig } from './config.js';
-import { EmbeddingError, WorkerError } from './types.js';
+import { EmbeddingProviderError, WorkerError } from './types.js';
 
 async function main() {
   try {
@@ -37,14 +37,14 @@ async function main() {
   } catch (error) {
     console.error('❌ Failed to start embeddings worker:', error);
 
-    if (error instanceof EmbeddingError) {
-      console.error(`Embedding Error [${error.code}]:`, error.message);
+    if (error instanceof EmbeddingProviderError) {
+      console.error(`Embedding Error:`, error.message);
       console.error('Provider:', error.provider);
       if (error.statusCode) {
         console.error('Status Code:', error.statusCode);
       }
     } else if (error instanceof WorkerError) {
-      console.error(`Worker Error [${error.component}]:`, error.message);
+      console.error(`Worker Error [${error.code}]:`, error.message);
     }
 
     process.exit(1);

@@ -37,7 +37,9 @@ export abstract class BaseEmbeddingProvider implements EmbeddingProvider {
     // Simple cache eviction - keep only last 1000 entries
     if (this.cache.size > 1000) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
   }
 

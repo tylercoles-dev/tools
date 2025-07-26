@@ -10,7 +10,9 @@ import { createLogger, format, transports } from 'winston';
 import type { 
   EmbeddingsWorkerConfig, 
   EmbeddingRequest, 
-  EmbeddingResponse, 
+  EmbeddingResponse,
+  EmbeddingBatchRequest,
+  EmbeddingBatchResponse, 
   EmbeddingsWorkerStats,
   EmbeddingProvider 
 } from './types.js';
@@ -103,11 +105,11 @@ export class EmbeddingsWorker {
       });
     } catch (error) {
       this.logger.error('Embedding provider test failed', { error });
-      throw new EmbeddingError(
+      throw new EmbeddingProviderError(
         'Failed to initialize embedding provider',
-        'PROVIDER_INIT_ERROR',
         this.config.embeddingProvider,
         undefined,
+        this.config.workerId,
         error instanceof Error ? error : undefined
       );
     }
@@ -160,7 +162,7 @@ export class EmbeddingsWorker {
     this.stats.totalRequests++;
     
     try {
-      const request: EmbeddingRequest = this.jsonCodec.decode(msg.data);
+      const request = this.jsonCodec.decode(msg.data) as EmbeddingRequest;
       
       this.logger.debug('Processing embedding request', {
         requestId: request.request_id,
@@ -214,40 +216,47 @@ export class EmbeddingsWorker {
     this.stats.totalRequests++;
     
     try {
-      const request: { 
-        request_id: string; 
-        texts: string[]; 
-        user_id?: string; 
-      } = this.jsonCodec.decode(msg.data);
+      const request = this.jsonCodec.decode(msg.data) as EmbeddingBatchRequest;
       
       this.logger.debug('Processing batch embedding request', {
-        requestId: request.request_id,
-        batchSize: request.texts.length,
+        batchId: request.batch_id,
+        batchSize: request.requests.length,
         subject: msg.subject
       });
 
+      // Extract texts from requests
+      const texts = request.requests.map(r => r.text);
+      
       // Generate embeddings in batch
-      const embeddings = await this.embeddingProvider.generateEmbeddingsBatch(request.texts);
+      const embeddings = await this.embeddingProvider.generateEmbeddingsBatch(texts);
       const processingTimeMs = Date.now() - startTime;
       
-      // Create response
-      const response = {
-        request_id: request.request_id,
-        embeddings,
+      // Create responses for each embedding
+      const responses: EmbeddingResponse[] = request.requests.map((req, i) => ({
+        request_id: req.request_id,
+        embedding: embeddings[i],
         dimension: this.embeddingProvider.getDimension(),
-        processing_time_ms: processingTimeMs,
-        batch_size: embeddings.length
+        processing_time_ms: processingTimeMs / request.requests.length,
+      }));
+      
+      // Create batch response
+      const batchResponse: EmbeddingBatchResponse = {
+        batch_id: request.batch_id,
+        responses,
+        errors: [],
+        total_processing_time_ms: processingTimeMs,
+        completed_at: Date.now(),
       };
       
       // Send response
-      msg.respond(this.jsonCodec.encode(response));
+      msg.respond(this.jsonCodec.encode(batchResponse));
       
       // Update stats
       this.stats.successfulEmbeddings += embeddings.length;
       this.stats.totalProcessingTime += processingTimeMs;
       
       this.logger.info('Batch embedding request completed', {
-        requestId: request.request_id,
+        batchId: request.batch_id,
         batchSize: embeddings.length,
         processingTimeMs,
         avgTimePerEmbedding: Math.round(processingTimeMs / embeddings.length)
@@ -277,17 +286,18 @@ export class EmbeddingsWorker {
         ? this.stats.totalProcessingTime / this.stats.totalRequests 
         : 0;
       
-      const stats: WorkerStats = {
+      const stats: EmbeddingsWorkerStats = {
+        // Base WorkerMetrics fields
+        workerId: this.config.workerId || 'embeddings-worker',
+        timestamp: Date.now(),
         totalRequests: this.stats.totalRequests,
+        successfulRequests: this.stats.successfulEmbeddings,
+        failedRequests: this.stats.failedEmbeddings,
+        averageResponseTime: Math.round(avgProcessingTime),
+        
+        // Embeddings-specific fields
         successfulEmbeddings: this.stats.successfulEmbeddings,
         failedEmbeddings: this.stats.failedEmbeddings,
-        averageProcessingTime: Math.round(avgProcessingTime),
-        uptime,
-        memoryUsage: {
-          heapUsed: memoryUsage.heapUsed,
-          heapTotal: memoryUsage.heapTotal,
-          external: memoryUsage.external
-        },
         batchesProcessed: 0, // Not applicable for this simplified worker
         memoriesProcessed: 0, // Not applicable for this simplified worker
         relationshipsDetected: 0, // Not applicable for this simplified worker

@@ -13,3 +13,6 @@ export * from './nats.js';
 
 // Common API types
 export * from './api.js';
+
+// MCP protocol types
+export * from './mcp.js';
