@@ -7,7 +7,7 @@ A comprehensive multi-server MCP (Model Context Protocol) ecosystem designed to 
 📋 **Related Documentation**:
 - [Detailed MCP Server Components](MCP_SERVER_DETAILS.md)
 - [Backend Integration Layer](BACKEND_INTEGRATION.md)
-- Background Workers (now TypeScript-based)
+- [TypeScript Workers Architecture](WORKERS_ARCHITECTURE.md)
 - [Web Client Architecture](WEB_CLIENT_ARCHITECTURE.md)
 - [Data Flow Diagrams](DATA_FLOW_DIAGRAMS.md)
 - [API Specifications](API_SPECIFICATIONS.md)
@@ -36,7 +36,7 @@ graph TB
     
     subgraph "Background Processing"
         WORKER1[Embeddings Worker<br/>TypeScript]
-        WORKER2[Memory Processing<br/>TypeScript]
+        WORKER2[Memory Processing Worker<br/>TypeScript]
         WORKER3[Markitdown Worker<br/>TypeScript]
     end
     
@@ -143,31 +143,31 @@ interface APIGateway {
   - `mcp.vector.index.request`
   - `mcp.relationship.analyze`
 
-### 3. Background Workers (Rust)
+### 3. Background Workers (TypeScript)
 
-🦀 **Detailed Implementation**: [Rust Workers Architecture](RUST_WORKERS.md)
+📦 **Detailed Implementation**: [TypeScript Workers Architecture](WORKERS_ARCHITECTURE.md)
 
-#### Vector Indexing Worker
-```rust
-struct VectorIndexingWorker {
+#### Embeddings Worker
+```typescript
+export class EmbeddingsWorker {
     // Processes content for vector embeddings
-    fn process_kanban_task(&self, task: Task) -> Result<(), Error>;
-    fn process_wiki_page(&self, page: WikiPage) -> Result<(), Error>;
-    fn process_memory_node(&self, memory: MemoryNode) -> Result<(), Error>;
+    async processKanbanTask(task: Task): Promise<void>;
+    async processWikiPage(page: WikiPage): Promise<void>;
+    async processMemoryNode(memory: MemoryNode): Promise<void>;
     
     // Updates Qdrant collections
-    fn update_vectors(&self, content: Vec<VectorContent>) -> Result<(), Error>;
+    async updateVectors(content: VectorContent[]): Promise<void>;
 }
 ```
 
-#### Relationship Worker
-```rust
-struct RelationshipWorker {
+#### Memory Processing Worker
+```typescript
+export class MemoryProcessingWorker {
     // Analyzes content for relationships
-    fn find_relationships(&self, content: Content) -> Vec<Relationship>;
+    async findRelationships(content: Content): Promise<Relationship[]>;
     
     // Updates relationship graph
-    fn update_graph(&self, relationships: Vec<Relationship>) -> Result<(), Error>;
+    async updateGraph(relationships: Relationship[]): Promise<void>;
 }
 ```
 
@@ -331,9 +331,15 @@ services:
   # Background Workers
   embeddings-worker:
     build: ./workers/embeddings
+    ports: ["3004:3004"]
     
-  relationship-worker:
-    build: ./workers/relationship
+  memory-processing-worker:
+    build: ./core
+    command: ["node", "dist/services/memory-processing/index.js"]
+    
+  markitdown-worker:
+    build: ./workers/markitdown
+    ports: ["3005:3005"]
   
   # Infrastructure
   nats:

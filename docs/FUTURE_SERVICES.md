@@ -213,7 +213,7 @@ Each additional service creates new data relationships that enhance the intellig
 
 All future services will leverage:
 - 🔗 **[Backend Integration Layer](BACKEND_INTEGRATION.md)**: Shared infrastructure components
-- 🦀 **[Rust Workers](RUST_WORKERS.md)**: Background processing patterns  
+- 📦 **[TypeScript Workers](WORKERS_ARCHITECTURE.md)**: Background processing patterns  
 - ⚛️ **[Web Client](WEB_CLIENT_ARCHITECTURE.md)**: Unified user interface
 - 📊 **[Data Flows](DATA_FLOW_DIAGRAMS.md)**: Established communication patterns
 - 🔌 **[API Standards](API_SPECIFICATIONS.md)**: Consistent interface design

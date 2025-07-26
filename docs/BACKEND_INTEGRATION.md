@@ -1,6 +1,6 @@
 # Backend Integration Layer Design
 
-🔙 **Back to**: [Main Architecture](ARCHITECTURE.md) | 🔍 **See also**: [MCP Server Details](MCP_SERVER_DETAILS.md) | [Rust Workers](RUST_WORKERS.md)
+🔙 **Back to**: [Main Architecture](ARCHITECTURE.md) | 🔍 **See also**: [MCP Server Details](MCP_SERVER_DETAILS.md) | [TypeScript Workers](WORKERS_ARCHITECTURE.md)
 
 ## Qdrant Vector Database Integration
 
@@ -423,7 +423,7 @@ export class CacheService {
 
 ## NATS Message Broker Integration
 
-🦀 **Workers Implementation**: [Rust Workers Architecture](RUST_WORKERS.md)
+📦 **Workers Implementation**: [TypeScript Workers Architecture](WORKERS_ARCHITECTURE.md)
 
 ### Message Schemas
 
@@ -681,7 +681,7 @@ This backend integration layer provides a robust foundation for connecting all t
 
 ## Next Steps
 
-- 🦀 **Background Processing**: [Rust Workers Architecture](RUST_WORKERS.md)
+- 📦 **Background Processing**: [TypeScript Workers Architecture](WORKERS_ARCHITECTURE.md)
 - ⚛️ **Frontend Integration**: [Web Client Architecture](WEB_CLIENT_ARCHITECTURE.md)
 - 📊 **System Workflows**: [Data Flow Diagrams](DATA_FLOW_DIAGRAMS.md)
 - 🔌 **API Implementation**: [API Specifications](API_SPECIFICATIONS.md)

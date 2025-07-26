@@ -316,7 +316,7 @@ export class GraphEngine {
 
 ## Shared MCP Framework Components
 
-🔗 **Integration**: [Backend Integration Layer](BACKEND_INTEGRATION.md) | [Rust Workers](RUST_WORKERS.md)
+🔗 **Integration**: [Backend Integration Layer](BACKEND_INTEGRATION.md) | [TypeScript Workers](WORKERS_ARCHITECTURE.md)
 
 ### Base MCP Server Structure
 ```typescript
@@ -476,6 +476,6 @@ This detailed design provides the foundation for implementing each MCP server wi
 ## Next Steps
 
 - 📋 **Implementation Guide**: [Backend Integration](BACKEND_INTEGRATION.md)
-- 🦀 **Worker Processes**: [Rust Workers Architecture](RUST_WORKERS.md)  
+- 📦 **Worker Processes**: [TypeScript Workers Architecture](WORKERS_ARCHITECTURE.md)  
 - ⚛️ **Frontend Integration**: [Web Client Architecture](WEB_CLIENT_ARCHITECTURE.md)
 - 📊 **System Flows**: [Data Flow Diagrams](DATA_FLOW_DIAGRAMS.md)

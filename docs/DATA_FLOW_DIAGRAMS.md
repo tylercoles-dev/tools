@@ -8,7 +8,7 @@ This document provides detailed data flow diagrams showing how information moves
 
 ## 1. Task Creation Flow
 
-🔗 **Implementation**: [Kanban MCP Server](MCP_SERVER_DETAILS.md#kanban-mcp-server) | [Vector Worker](RUST_WORKERS.md#vector-indexing-worker)
+🔗 **Implementation**: [Kanban MCP Server](MCP_SERVER_DETAILS.md#kanban-mcp-server) | [Embeddings Worker](WORKERS_ARCHITECTURE.md#embeddings-worker)
 
 ```mermaid
 sequenceDiagram
@@ -16,8 +16,8 @@ sequenceDiagram
     participant KS as Kanban MCP Server
     participant PG as PostgreSQL
     participant NATS as NATS Message Broker
-    participant VW as Vector Worker
-    participant RW as Relationship Worker
+    participant VW as Embeddings Worker
+    participant RW as Memory Processing Worker
     participant QD as Qdrant
     participant WS as WebSocket
     participant WEB as Web Client
@@ -108,7 +108,7 @@ sequenceDiagram
 
 ## 3. Memory Graph Creation and Relationship Discovery
 
-🔗 **Implementation**: [Memory Server](MCP_SERVER_DETAILS.md#memory-graph-mcp-server) | [Relationship Worker](RUST_WORKERS.md#relationship-analysis-worker)
+🔗 **Implementation**: [Memory Server](MCP_SERVER_DETAILS.md#memory-graph-mcp-server) | [Memory Processing Worker](WORKERS_ARCHITECTURE.md#memory-processing-worker)
 
 ```mermaid
 sequenceDiagram
@@ -116,8 +116,8 @@ sequenceDiagram
     participant MS as Memory MCP Server
     participant PG as PostgreSQL
     participant NATS as NATS
-    participant RW as Relationship Worker
-    participant VW as Vector Worker
+    participant RW as Memory Processing Worker
+    participant VW as Embeddings Worker
     participant QD as Qdrant
     participant WS as WebSocket
     participant WEB as Web Client
@@ -170,8 +170,8 @@ sequenceDiagram
     participant WS as Wiki MCP Server
     participant PG as PostgreSQL
     participant NATS as NATS
-    participant RW as Relationship Worker
-    participant VW as Vector Worker
+    participant RW as Memory Processing Worker
+    participant VW as Embeddings Worker
     participant QD as Qdrant
     participant CACHE as Redis Cache
     participant WEB as Web Client via WebSocket
@@ -428,6 +428,6 @@ flowchart TD
 
 - 📋 **Implementation Details**: [MCP Server Details](MCP_SERVER_DETAILS.md)
 - 🔗 **Backend Systems**: [Backend Integration](BACKEND_INTEGRATION.md)
-- 🦀 **Worker Processes**: [Rust Workers](RUST_WORKERS.md)
+- 📦 **Worker Processes**: [TypeScript Workers](WORKERS_ARCHITECTURE.md)
 - ⚛️ **Frontend Integration**: [Web Client Architecture](WEB_CLIENT_ARCHITECTURE.md)
 - 🔌 **API Reference**: [API Specifications](API_SPECIFICATIONS.md)
