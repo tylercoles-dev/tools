@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from '@/components/ui/toaster';
+import { RealtimeProvider } from '@/components/realtime/realtime-provider';
 
 // Create a client instance
 const queryClient = new QueryClient({
@@ -32,7 +34,10 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <RealtimeProvider>
+        {children}
+        <Toaster />
+      </RealtimeProvider>
     </QueryClientProvider>
   );
 }

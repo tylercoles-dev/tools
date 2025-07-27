@@ -100,16 +100,51 @@ curl http://localhost:3000/api/health
 - **Authentication System** - JWT-based user management
 - **Real-time Features** - WebSocket-based collaboration
 
+## Quick Start
+
+### Using Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd mcp_tools
+
+# Copy environment template
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run setup script
+chmod +x scripts/docker-setup.sh
+./scripts/docker-setup.sh
+```
+
+**Access the application:**
+- 🌐 Web App: http://localhost:3001
+- 🔧 API: http://localhost:3000
+- 📊 Qdrant Dashboard: http://localhost:6333/dashboard
+
+### Development Setup
+
+```bash
+# Development environment with hot reload
+chmod +x scripts/docker-dev.sh
+./scripts/docker-dev.sh
+```
+
+See [Deployment Guide](docs/DEPLOYMENT.md) for detailed instructions.
+
 ## Development Status
 
-**Current Phase**: Core architecture complete, medium priority enhancements in progress.
+**Current Phase**: Production-ready with Docker deployment configuration.
 
-All high priority tasks completed:
-- ✅ TypeScript architecture consolidation
-- ✅ Shared types system implementation  
-- ✅ Documentation updates and creation
-- ✅ Embeddings worker implementation
-- ✅ Gateway shared types integration
+✅ **Completed Features:**
+- **Authentication System** - JWT-based login/signup with secure sessions
+- **Kanban Boards** - Full project management with drag-and-drop
+- **Memory Management** - AI-powered knowledge base with search
+- **Wiki Documentation** - Markdown-based collaborative docs
+- **Real-time Updates** - WebSocket connections for live collaboration
+- **TypeScript Architecture** - Type-safe shared components
+- **Docker Deployment** - Production-ready containerization
 
 ## Contributing
 

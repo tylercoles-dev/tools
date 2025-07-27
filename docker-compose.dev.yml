@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Development
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: mcp-tools-postgres-dev
+    environment:
+      POSTGRES_DB: mcp_tools_dev
+      POSTGRES_USER: mcp_user
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./scripts/init-dev-db.sql:/docker-entrypoint-initdb.d/init-dev-db.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mcp_user -d mcp_tools_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-dev-network
+
+  # Redis Cache for Development
+  redis-dev:
+    image: redis:7-alpine
+    container_name: mcp-tools-redis-dev
+    command: redis-server --requirepass dev_redis_password
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mcp-dev-network
+
+  # Qdrant Vector Database for Development
+  qdrant-dev:
+    image: qdrant/qdrant:latest
+    container_name: mcp-tools-qdrant-dev
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - qdrant_dev_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__HTTP_PORT: 6333
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mcp-dev-network
+
+  # Development Hot Reload Services
+  gateway-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: gateway-dev
+    container_name: mcp-tools-gateway-dev
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://mcp_user:dev_password@postgres-dev:5432/mcp_tools_dev
+      REDIS_URL: redis://:dev_redis_password@redis-dev:6379
+      QDRANT_URL: http://qdrant-dev:6333
+      JWT_SECRET: dev_jwt_secret_key
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/gateway/node_modules
+      - /app/core/node_modules
+    ports:
+      - "3000:3000"
+      - "9229:9229" # Node.js debugging port
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
+      qdrant-dev:
+        condition: service_healthy
+    command: npm run dev
+    networks:
+      - mcp-dev-network
+
+  embeddings-worker-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: worker-dev
+    container_name: mcp-tools-embeddings-worker-dev
+    environment:
+      NODE_ENV: development
+      QDRANT_URL: http://qdrant-dev:6333
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      REDIS_URL: redis://:dev_redis_password@redis-dev:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/workers/embeddings/node_modules
+      - /app/core/node_modules
+    depends_on:
+      redis-dev:
+        condition: service_healthy
+      qdrant-dev:
+        condition: service_healthy
+    command: npm run dev
+    networks:
+      - mcp-dev-network
+
+  web-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: web-dev
+    container_name: mcp-tools-web-dev
+    environment:
+      NODE_ENV: development
+      API_BASE_URL: http://localhost:3000
+      WS_BASE_URL: ws://localhost:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/web/node_modules
+      - /app/core/node_modules
+    ports:
+      - "3001:3001"
+    depends_on:
+      - gateway-dev
+    command: npm run dev
+    networks:
+      - mcp-dev-network
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  qdrant_dev_data:
+    driver: local
+
+networks:
+  mcp-dev-network:
+    driver: bridge
