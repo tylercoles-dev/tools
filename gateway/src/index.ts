@@ -27,18 +27,23 @@ import memoryRoutes from './routes/memory.routes.js';
 import wikiRoutes from './routes/wiki.routes.js';
 import scraperRoutes from './routes/scraper.routes.js';
 import healthRoutes from './routes/health.routes.js';
+import { createAnalyticsRoutes } from './routes/analytics.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authMiddleware } from './middleware/auth.js';
 import { responseFormatter } from './middleware/responseFormatter.js';
+import { createAnalyticsMiddleware, createErrorTrackingMiddleware } from './middleware/analytics.middleware.js';
 
 // Import services from core library
 import { KanbanService, KanbanDatabase } from '@mcp-tools/core/kanban';
 import { MemoryService, MemoryDatabaseManager, VectorEngine } from '@mcp-tools/core/memory';
 import { ScraperService, ScraperDatabaseManager, ScrapingEngine } from '@mcp-tools/core/scraper';
+import { AnalyticsService } from './services/AnalyticsService.js';
 import { setupWebSocket } from './websocket/index.js';
+import { Pool } from 'pg';
+import Redis from 'ioredis';
 
 // Load environment variables
 dotenv.config();
@@ -64,7 +69,9 @@ const config = {
     scraper: {
       type: 'sqlite' as const,
       filename: process.env.SCRAPER_DB_FILE || path.join(process.cwd(), 'scraper-test.db')
-    }
+    },
+    postgres: process.env.DATABASE_URL || 'postgresql://mcp_user:mcp_password@localhost:5432/mcp_tools',
+    redis: process.env.REDIS_URL || 'redis://localhost:6379'
   },
   nats: {
     url: process.env.NATS_URL || 'nats://localhost:4222'
@@ -134,6 +141,22 @@ async function createApp() {
   console.log('Memory DB path:', config.database.memory.filename);
   console.log('Scraper DB path:', config.database.scraper.filename);
   
+  // Initialize PostgreSQL and Redis for analytics
+  console.log('🔄 Connecting to PostgreSQL...');
+  const pgPool = new Pool({
+    connectionString: config.database.postgres,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+  });
+  
+  console.log('🔄 Connecting to Redis...');
+  const redis = new Redis(config.database.redis, {
+    retryDelayOnFailover: 100,
+    enableReadyCheck: false,
+    maxRetriesPerRequest: null,
+  });
+  
   // Initialize databases
   const kanbanDatabase = new KanbanDatabase(config.database.kanban);
   console.log('✅ KanbanDatabase created');
@@ -174,10 +197,17 @@ async function createApp() {
   const scraperService = new ScraperService(scraperDatabase, scrapingEngine);
   console.log('✅ ScraperService created');
   
+  // Initialize analytics service
+  const analyticsService = new AnalyticsService(pgPool, redis);
+  console.log('✅ AnalyticsService created');
+  
   // Store services in app locals for access in routes
   app.locals.kanbanService = kanbanService;
   app.locals.memoryService = memoryService;
   app.locals.scraperService = scraperService;
+  app.locals.analyticsService = analyticsService;
+  app.locals.pgPool = pgPool;
+  app.locals.redis = redis;
   
   // API Documentation (before auth middleware)
   try {
@@ -193,14 +223,18 @@ async function createApp() {
   // Health check (before auth)
   app.use('/health', healthRoutes);
   
+  // Analytics middleware (before auth to track all requests)
+  app.use('/api', createAnalyticsMiddleware(analyticsService));
+  
   // Authentication middleware for protected routes
   app.use('/api', authMiddleware);
   
   // API Routes
-  app.use('/api/kanban', kanbanRoutes);
-  app.use('/api/memory', memoryRoutes);
-  app.use('/api/wiki', wikiRoutes);
-  app.use('/api/scraper', scraperRoutes);
+  app.use('/api/v1/kanban', kanbanRoutes);
+  app.use('/api/v1/memory', memoryRoutes);
+  app.use('/api/v1/wiki', wikiRoutes);
+  app.use('/api/v1/scraper', scraperRoutes);
+  app.use('/api/v1/analytics', createAnalyticsRoutes(analyticsService));
   
   // Root endpoint
   app.get('/', (req, res) => {
@@ -216,6 +250,9 @@ async function createApp() {
   app.use('*', (req, res) => {
     res.status(404).error('NOT_FOUND', `Route ${req.method} ${req.originalUrl} not found`);
   });
+  
+  // Error tracking middleware (before error handler)
+  app.use(createErrorTrackingMiddleware(analyticsService));
   
   // Error handling middleware (must be last)
   app.use(errorHandler);
@@ -244,7 +281,7 @@ async function startServer() {
       }
     });
     
-    setupWebSocket(io, app.locals.kanbanService);
+    setupWebSocket(io, app.locals.kanbanService, app.locals.analyticsService);
     
     // Start server
     server.listen(config.port, () => {

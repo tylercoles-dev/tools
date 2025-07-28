@@ -7,6 +7,8 @@
 import { Server as SocketIOServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { KanbanService } from '@mcp-tools/core/kanban';
+import { AnalyticsService } from '../services/AnalyticsService.js';
+import { setupAnalyticsWebSocket } from './analytics.websocket.js';
 
 interface AuthenticatedSocket {
   id: string;
@@ -22,7 +24,7 @@ interface AuthenticatedSocket {
   disconnect: () => void;
 }
 
-export function setupWebSocket(io: SocketIOServer, kanbanService: KanbanService): void {
+export function setupWebSocket(io: SocketIOServer, kanbanService: KanbanService, analyticsService?: AnalyticsService): void {
   // Authentication middleware
   io.use(async (socket: any, next) => {
     try {
@@ -187,6 +189,11 @@ export function setupWebSocket(io: SocketIOServer, kanbanService: KanbanService)
       io.emit(event, data);
     }
   };
+  
+  // Set up analytics WebSocket if service is provided
+  if (analyticsService) {
+    setupAnalyticsWebSocket(io, analyticsService);
+  }
   
   // Example: Memory updates could be broadcast here
   // This would be called from the API routes when memories are created/updated

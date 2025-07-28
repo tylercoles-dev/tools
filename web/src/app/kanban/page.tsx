@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useKanbanBoards, useKanbanMutations } from '@/hooks/use-api';
+import { usePageTracking, useInteractionTracking } from '@/hooks/use-analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,10 @@ export default function KanbanPage() {
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
   
+  // Analytics tracking
+  usePageTracking('kanban_boards_list');
+  const { trackClick, trackFormSubmit } = useInteractionTracking();
+  
   const { data: boardsData, isLoading, error } = useKanbanBoards();
   const { createBoard } = useKanbanMutations();
 
@@ -48,11 +53,20 @@ export default function KanbanPage() {
         ]
       });
       
+      // Track successful board creation
+      trackFormSubmit('create_board_form', 'kanban', true, {
+        boardName: newBoardName,
+        hasDescription: !!newBoardDescription.trim()
+      });
+      
       setNewBoardName('');
       setNewBoardDescription('');
       setIsCreateOpen(false);
     } catch (error) {
-      // Error handled by hook
+      // Track failed board creation
+      trackFormSubmit('create_board_form', 'kanban', false, {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   };
 

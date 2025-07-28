@@ -51,12 +51,12 @@ export default function DashboardPage() {
       href: '/wiki',
     },
     {
-      title: 'Active Users',
-      value: 1,
-      description: 'Currently online',
-      icon: Users,
-      color: 'bg-orange-500',
-      href: '/users',
+      title: 'Analytics',
+      value: '📊',
+      description: 'View insights',
+      icon: BarChart3,
+      color: 'bg-indigo-500',
+      href: '/dashboard/analytics',
     },
   ];
 
@@ -107,6 +107,9 @@ export default function DashboardPage() {
                 </Link>
                 <Link href="/wiki" className="text-gray-600 hover:text-gray-900">
                   Wiki
+                </Link>
+                <Link href="/dashboard/analytics" className="text-gray-600 hover:text-gray-900">
+                  Analytics
                 </Link>
               </nav>
               <ConnectionStatusIndicator 

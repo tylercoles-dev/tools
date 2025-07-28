@@ -16,3 +16,6 @@ export * from './api.js';
 
 // MCP protocol types
 export * from './mcp.js';
+
+// Analytics and insights types
+export * from './analytics.js';

@@ -286,6 +286,27 @@ export class ApiClient {
     const response = await this.client.get(`/api/mcp/${server}/resources`);
     return response.data;
   }
+
+  // Generic HTTP methods for flexibility
+  async get(url: string, config?: any): Promise<AxiosResponse> {
+    return this.client.get(url, config);
+  }
+
+  async post(url: string, data?: any, config?: any): Promise<AxiosResponse> {
+    return this.client.post(url, data, config);
+  }
+
+  async put(url: string, data?: any, config?: any): Promise<AxiosResponse> {
+    return this.client.put(url, data, config);
+  }
+
+  async patch(url: string, data?: any, config?: any): Promise<AxiosResponse> {
+    return this.client.patch(url, data, config);
+  }
+
+  async delete(url: string, config?: any): Promise<AxiosResponse> {
+    return this.client.delete(url, config);
+  }
 }
 
 // Create singleton instance
