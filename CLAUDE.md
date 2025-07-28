@@ -186,3 +186,7 @@ Both kanban and wiki servers support multiple database types:
 ## No Build/Test Commands for Documentation
 
 The root documentation files don't have build commands - the value is in the comprehensive architectural specifications and design patterns documented across the markdown files.
+
+# User Notes
+- Please make sure to commit changes to git after finishing features. If features are significant enough, a new branch can be created and merged back to main/dev branch later on.
+- Always check `work_items.md` and keep it update to date with current status of work items. If new items are needed, please add them. You may sort the order of work items once a feature is completed depending on necessity, ONLY AFTER CONFIRMING WITH THE USER.
