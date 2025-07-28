@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { AnalyticsService } from '../services/AnalyticsService.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { authMiddleware } from '../middleware/auth.js';
 import { validateRequest } from '../middleware/validation.middleware.js';
 import { 
   TrackEventRequestSchema, 

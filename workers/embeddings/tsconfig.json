@@ -1,21 +1,23 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "allowJs": true,
+    "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "strict": true,
-    "declaration": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": false
+    "allowJs": true,
+    "verbatimModuleSyntax": false,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@embeddings/*": ["./src/*"],
+      "@mcp-tools/core": ["../../core/src/index.ts"],
+      "@mcp-tools/core/*": ["../../core/src/*"],
+      "@shared/*": ["../../core/src/shared/*"],
+      "@types/*": ["../../core/src/shared/types/*"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../core" }
+  ]
 }

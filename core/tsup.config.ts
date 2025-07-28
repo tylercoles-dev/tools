@@ -17,7 +17,7 @@ export default defineConfig({
   minify: false,
   splitting: false,
   treeshake: true,
-  dts: true, // Re-enable TypeScript declarations
+  dts: false, // Disable TypeScript declarations for now
   external: [
     // External dependencies should not be bundled
     'better-sqlite3',

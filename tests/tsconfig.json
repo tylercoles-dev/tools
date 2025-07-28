@@ -1,29 +1,27 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "baseUrl": ".",
+    "types": ["jest", "node"],
     "paths": {
       "@/*": ["./src/*"],
+      "@tests/*": ["./src/*"],
       "@/fixtures/*": ["./src/fixtures/*"],
       "@/utils/*": ["./src/utils/*"],
-      "@/setup/*": ["./src/setup/*"]
-    },
-    "types": ["jest", "node"]
+      "@/setup/*": ["./src/setup/*"],
+      "@mcp-tools/core": ["../core/src/index.ts"],
+      "@mcp-tools/core/*": ["../core/src/*"],
+      "@mcp-tools/gateway": ["../gateway/src/index.ts"],
+      "@mcp-tools/gateway/*": ["../gateway/src/*"],
+      "@shared/*": ["../core/src/shared/*"],
+      "@types/*": ["../core/src/shared/types/*"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "coverage", "dist"]
+  "exclude": ["node_modules", "coverage", "dist"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../gateway" }
+  ]
 }

@@ -17,9 +17,17 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@types/*": ["./src/shared/types/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@mcp-tools/core": ["./src/index.ts"],
+      "@mcp-tools/core/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],

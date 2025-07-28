@@ -1,0 +1,108 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      // Core package - shared types and utilities
+      "@mcp-tools/core": ["./core/src/index.ts"],
+      "@mcp-tools/core/*": ["./core/src/*"],
+      
+      // Gateway - API gateway and routing
+      "@mcp-tools/gateway": ["./gateway/src/index.ts"],
+      "@mcp-tools/gateway/*": ["./gateway/src/*"],
+      
+      // Web client - Next.js frontend
+      "@mcp-tools/web": ["./web/src/index.ts"],
+      "@mcp-tools/web/*": ["./web/src/*"],
+      
+      // MCP Servers
+      "@mcp-tools/kanban": ["./servers/kanban/src/index.ts"],
+      "@mcp-tools/kanban/*": ["./servers/kanban/src/*"],
+      "@mcp-tools/memory": ["./servers/memory/src/index.ts"],
+      "@mcp-tools/memory/*": ["./servers/memory/src/*"],
+      "@mcp-tools/wiki": ["./servers/wiki/src/index.ts"],
+      "@mcp-tools/wiki/*": ["./servers/wiki/src/*"],
+      
+      // Workers
+      "@mcp-tools/embeddings": ["./workers/embeddings/src/index.ts"],
+      "@mcp-tools/embeddings/*": ["./workers/embeddings/src/*"],
+      "@mcp-tools/markitdown": ["./workers/markitdown/src/index.ts"],
+      "@mcp-tools/markitdown/*": ["./workers/markitdown/src/*"],
+      
+      // Tests
+      "@mcp-tools/tests": ["./tests/src/index.ts"],
+      "@mcp-tools/tests/*": ["./tests/src/*"],
+      
+      // Shared aliases for common patterns
+      "@shared/*": ["./core/src/shared/*"],
+      "@types/*": ["./core/src/shared/types/*"],
+      "@utils/*": ["./core/src/utils/*"],
+      
+      // Project-specific aliases
+      "@gateway/*": ["./gateway/src/*"],
+      "@web/*": ["./web/src/*"],
+      "@components/*": ["./web/src/components/*"],
+      "@hooks/*": ["./web/src/hooks/*"],
+      "@lib/*": ["./web/src/lib/*"],
+      "@api/*": ["./web/src/api/*"],
+      
+      // Server aliases
+      "@kanban/*": ["./servers/kanban/src/*"],
+      "@memory/*": ["./servers/memory/src/*"],
+      "@wiki/*": ["./servers/wiki/src/*"],
+      
+      // Worker aliases
+      "@embeddings/*": ["./workers/embeddings/src/*"],
+      "@markitdown/*": ["./workers/markitdown/src/*"]
+    }
+  },
+  "include": [
+    "core/src/**/*",
+    "gateway/src/**/*",
+    "web/src/**/*",
+    "servers/*/src/**/*",
+    "workers/*/src/**/*",
+    "tests/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "dist",
+    "**/dist",
+    "build",
+    "**/build",
+    ".next",
+    "**/.next",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ],
+  "references": [
+    { "path": "./core" },
+    { "path": "./gateway" },
+    { "path": "./web" },
+    { "path": "./servers/kanban" },
+    { "path": "./servers/memory" },
+    { "path": "./servers/wiki" },
+    { "path": "./workers/embeddings" },
+    { "path": "./workers/markitdown" },
+    { "path": "./tests" }
+  ]
+}

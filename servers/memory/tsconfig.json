@@ -1,28 +1,25 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
+    "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
     "noImplicitAny": false,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "strict": true,
     "noEmit": false,
     "emitDeclarationOnly": false,
-    "forceConsistentCasingInFileNames": true
+    "paths": {
+      "@/*": ["./src/*"],
+      "@memory/*": ["./src/*"],
+      "@mcp-tools/core": ["../../core/src/index.ts"],
+      "@mcp-tools/core/*": ["../../core/src/*"],
+      "@shared/*": ["../../core/src/shared/*"],
+      "@types/*": ["../../core/src/shared/types/*"]
+    }
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../../core" }
   ]
 }
