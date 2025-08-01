@@ -18,16 +18,22 @@ This guide covers deployment options for MCP Tools, from local development to pr
    git clone <repository-url>
    cd mcp_tools
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env with production configuration
    ```
 
-2. **Run Setup Script**
+2. **Build Core Dependencies**
+   ```bash
+   # Build core package first (required for all services)
+   cd core && npm install && npm run build
+   ```
+
+3. **Run Docker Setup**
    ```bash
    chmod +x scripts/docker-setup.sh
    ./scripts/docker-setup.sh
    ```
 
-3. **Access Application**
+4. **Access Application**
    - Web App: http://localhost:3001
    - API: http://localhost:3000
    - Qdrant: http://localhost:6333/dashboard

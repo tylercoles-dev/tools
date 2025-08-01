@@ -4,189 +4,216 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a comprehensive multi-server MCP (Model Context Protocol) ecosystem design repository. The project documents the architecture for advanced work management, documentation, and memory persistence capabilities for LLMs. **This is primarily a documentation/specification repository** - the actual implementation code is not present in this directory.
+This is a comprehensive production-ready MCP (Model Context Protocol) ecosystem implementing advanced work management, documentation, and memory persistence capabilities for LLMs. The system consists of multiple TypeScript services working together as a unified platform.
 
-## Repository Structure
+## Architecture
 
-The repository contains detailed architectural documentation:
+### Core Components
+- **MCP Servers** (TypeScript) - Kanban, Wiki, and Memory Graph servers implementing MCP protocol
+- **API Gateway** (TypeScript/Express) - Unified REST API with WebSocket real-time updates  
+- **Web Client** (React/Next.js) - Production-ready frontend with authentication and real-time collaboration
+- **Background Workers** (TypeScript) - Embeddings processing, document conversion, and analysis
+- **Core Services** (TypeScript) - Shared types, services, and utilities with comprehensive Zod validation
 
-- `ARCHITECTURE.md` - High-level system architecture and component overview
-- `API_SPECIFICATIONS.md` - Complete API schemas and interface definitions
-- `MCP_SERVER_DETAILS.md` - Detailed TypeScript implementation designs for MCP servers
-- `BACKEND_INTEGRATION.md` - Database and backend service integration patterns  
-- Background worker architecture now implemented in TypeScript
-- `WEB_CLIENT_ARCHITECTURE.md` - React/Next.js frontend design
-- `DATA_FLOW_DIAGRAMS.md` - System data flow documentation
-- `FUTURE_SERVICES.md` - Roadmap for additional services
+### Key Technologies
+- **TypeScript** - All services use strict TypeScript with shared type system
+- **MCP Protocol** - Model Context Protocol for AI tool integration
+- **Vector Search** - Qdrant for semantic search and embeddings
+- **Real-time** - WebSocket connections for live collaboration
+- **Databases** - SQLite (development), PostgreSQL (production)
+- **Bundling** - tsup for fast TypeScript compilation
 
-## System Components
+## Monorepo Structure & Path Aliases
 
-### Core MCP Servers (TypeScript)
-1. **Kanban MCP Server** - Task and project management with tools like `create_board`, `create_task`, `move_task`
-2. **Wiki MCP Server** - Knowledge management with tools like `create_page`, `search_content`, `link_pages`  
-3. **Memory Graph MCP Server** - Long-term knowledge persistence with tools like `store_memory`, `retrieve_memory`, `create_connection`
+The project uses a comprehensive TypeScript path alias system defined in the root `tsconfig.json`:
 
-### Integration Layer
-- **API Gateway** (TypeScript/Express) - Unified REST API and WebSocket server
-- **NATS Message Broker** - Async communication between servers and workers
-
-### Background Workers (TypeScript)
-- **Embeddings Worker** - Generates vector embeddings via Ollama/OpenAI APIs
-- **Memory Processing Service** - Analyzes content and detects relationships
-- **Markitdown Worker** - Document conversion and processing
-
-### Data Layer
-- **Qdrant Vector Database** - Semantic search and embeddings
-- **PostgreSQL** - Primary data storage
-- **Redis** - Caching layer
-
-## Architecture Patterns
-
-The system follows a microservices architecture with:
-- Each MCP server as an independent service
-- Event-driven communication via NATS
-- Vector embeddings for semantic search
-- Graph-based relationship mapping
-- Real-time updates via WebSocket
-
-## Key Design Principles
-
-- **Separation of Concerns** - Clear boundaries between MCP tools, business logic, and data layers
-- **Event-Driven Architecture** - NATS messaging for loose coupling between components
-- **Vector-First Search** - All content indexed in Qdrant for semantic similarity
-- **Relationship Mapping** - Automatic discovery and maintenance of content relationships
-- **Scalability** - Horizontally scalable workers and stateless design
-
-## MCP Tool Integration Architecture
-
-The project follows Model Context Protocol (MCP) patterns for interconnected tool ecosystem:
-
-### Tool Categories & URI Schemes
-- **Task Management Tools**: `kanban://project/{id}/task/{id}`
-- **Knowledge Management Tools**: `wiki://project/{id}/page/{slug}`
-- **Memory Systems**: `memory://thought/{id}` and `memory://graph/{relationship_id}`
-
-### Cross-Tool Resource Linking
-All tools expose resources via standardized URI schemes that enable:
-- Semantic linking between kanban tasks and wiki pages
-- Memory system integration for "thought streams" with embeddings
-- LLM context awareness of related resources across tools
-
-### Memory System Integration
-The memory system uses:
-- **Thought Streams**: Encoded as embeddings in vector database
-- **Network of Thoughts**: Graph relationships between memory entries
-- **Resource References**: Direct links to kanban tasks and wiki pages
-- **Context Injection**: Retrieved memories enhance LLM context with related resources
-
-### MCP Resource Structure
-```json
-{
-  "resources": [
-    {
-      "id": "task-456",
-      "type": "task", 
-      "uri": "kanban://project-abc/task-456",
-      "metadata": {"status": "In Progress", "linked_pages": ["wiki-001"]}
-    },
-    {
-      "id": "wiki-001",
-      "type": "wiki_page",
-      "uri": "wiki://project-abc/getting-started", 
-      "metadata": {"linked_tasks": ["task-456"], "thought_refs": ["thought-789"]}
-    }
-  ]
-}
+```typescript
+"@mcp-tools/core": "./core/src/index.ts"           // Core shared services
+"@mcp-tools/gateway": "./gateway/src/index.ts"     // API gateway
+"@mcp-tools/web": "./web/src/index.ts"             // Web client
+"@mcp-tools/kanban": "./servers/kanban/src/index.ts"
+"@mcp-tools/memory": "./servers/memory/src/index.ts" 
+"@mcp-tools/wiki": "./servers/wiki/src/index.ts"
+"@shared/*": "./core/src/shared/*"                 // Shared utilities
+"@types/*": "./core/src/shared/types/*"            // Shared types
 ```
 
-## Development Context
-
-This repository serves as the comprehensive design specification for implementing the MCP tools ecosystem. When working with this codebase:
-
-1. **Focus on Documentation** - This is a specification repository; treat it as such
-2. **Cross-Reference Architecture** - Use the interconnected documentation files to understand system relationships
-3. **API-First Design** - The API specifications are comprehensive and should guide any implementation
-4. **Understand Data Flows** - The system relies heavily on async messaging and vector operations
+**Critical**: Always build the core package first before building other components, as they depend on the compiled core module.
 
 ## Development Commands
 
-### Kanban MCP Server
-The kanban server has been set up with the following commands:
+### Essential Build Order
 ```bash
-cd servers/kanban
+# 1. Build core package FIRST (required by all other components)
+cd core && npm install && npm run build
+
+# 2. Build other components (can be done in parallel)
+cd ../gateway && npm install && npm run build
+cd ../web && npm install && npm run build
+cd ../servers/kanban && npm install && npm run build
+cd ../servers/wiki && npm install && npm run build
+cd ../servers/memory && npm install && npm run build
+```
+
+### Core Package
+```bash
+cd core
 npm install           # Install dependencies
-npm run build        # Build with tsup (fast bundler)
+npm run build        # Build with tsup (MUST run first)
+npm run dev          # Development mode with tsup watch
+npm run typecheck    # Type checking without build
+npm run clean        # Clean build directory
+```
+
+### API Gateway
+```bash
+cd gateway
+npm install           # Install dependencies
+npm run build        # Build with tsup
+npm run dev          # Development mode with hot reload
+npm run start        # Run production build
+npm run typecheck    # Type checking
+```
+
+### Web Client (Next.js)
+```bash
+cd web
+npm install           # Install dependencies
+npm run build        # Production build
+npm run dev          # Development server (http://localhost:3000)
+npm run start        # Run production build
+npm run lint         # ESLint checking
+npm run type-check   # TypeScript checking
+```
+
+### MCP Servers
+Each MCP server (kanban, wiki, memory) follows the same pattern:
+```bash
+cd servers/[server-name]
+npm install           # Install dependencies
+npm run build        # Build with tsup
 npm run dev          # Development mode with tsup watch
 npm run start        # Run production build
 npm run typecheck    # Type checking without build
 npm run clean        # Clean build directory
-npm run db:migrate   # Initialize database
+npm run db:migrate   # Initialize database (kanban/wiki only)
 ```
 
-The server uses **tsup** for fast, modern builds instead of plain TypeScript compiler.
-
-### Wiki MCP Server
-The wiki server has been implemented with the following structure:
+### Background Workers
 ```bash
-cd servers/wiki
-npm install           # Install dependencies including markdown processing
-npm run build        # Build with tsup
-npm run dev          # Development mode with tsup watch  
-npm run start        # Run production build
-npm run typecheck    # Type checking without build
-npm run clean        # Clean build directory
-npm run db:migrate   # Initialize database with wiki schema
+cd workers/embeddings
+npm install && npm run build && npm run dev
+
+cd workers/markitdown  
+npm install && npm run build && npm run dev
 ```
 
-Key wiki server features:
-- **Markdown Processing**: GitHub Flavored Markdown with wiki-style `[[page]]` linking
-- **Hierarchical Pages**: Parent-child relationships for structured content organization
-- **Categories & Tags**: Flexible organization systems with color coding
-- **Full-Text Search**: SQLite FTS5 and PostgreSQL tsvector search support
-- **Version History**: Track changes with authorship and change reasons
-- **Comments System**: Discussion functionality for pages
-- **MCP Resources**: URI-based access (`wiki://page/{id}`, `wiki://slug/{slug}`)
+### Testing
+```bash
+cd tests
+npm install           # Install test dependencies
+npm test             # Run all tests
+npm run test:integration  # Integration tests
+npm run test:e2e     # End-to-end tests
+```
 
-### Database Support
-Both kanban and wiki servers support multiple database types:
-- SQLite (default for development) 
-- PostgreSQL (production)
-- MySQL (alternative production)
+## System Architecture Patterns
 
-### Current Implementation Status
-✅ **Kanban MCP Server**: Complete with task/board management, WebSocket real-time updates
-✅ **Wiki MCP Server**: Complete with markdown processing, search, hierarchical organization
-🚧 **Memory MCP Server**: Planned for thought streams and semantic embedding integration
-🚧 **API Gateway**: Planned for unified REST API across all MCP servers
+### MCP Protocol Integration
+- **Tool Categories**: Each server exposes MCP tools for specific domains (kanban, wiki, memory)
+- **Resource URIs**: `kanban://project/{id}/task/{id}`, `wiki://page/{id}`, `memory://thought/{id}`
+- **Cross-tool Linking**: Resources can reference each other via standardized URI schemes
 
-## Architectural Decisions from July 23, 2025
+### Type System Architecture
+- **Shared Types**: All TypeScript types defined in `core/src/shared/types/` with Zod validation
+- **Export Pattern**: Core package exports all types for consumption by other services
+- **Validation**: Runtime validation using Zod schemas for API boundaries
 
-### Pivot to REST API Architecture
-**Decision**: Changed from direct MCP client integration to REST API + React Query approach for better web client compatibility.
+### Database Architecture  
+- **Multi-database Support**: SQLite (development), PostgreSQL (production), MySQL (alternative)
+- **Schema Management**: SQL schema files in each server's `database/` directory
+- **Migration System**: `npm run db:migrate` initializes database schemas
 
-**Rationale**: 
-- Better browser support and development experience
-- Enables traditional web authentication patterns
-- Simplifies state management with React Query
-- Maintains MCP benefits on the backend while exposing familiar APIs
+### Real-time Updates
+- **WebSocket Integration**: Gateway provides WebSocket endpoints for live collaboration
+- **Event-driven**: NATS messaging for async communication between services
+- **State Synchronization**: Real-time updates for kanban boards, wiki pages, and memory graphs
 
-### Memory System Design
-**Architecture**: LLM memory system using embeddings and vector database for "thought streams"
-- Each thought encoded as embedding with metadata and relationships
-- Vector similarity search for semantic memory retrieval  
-- Graph relationships between thoughts, tasks, and wiki pages
-- Integration with MCP resource URIs for cross-tool context
+## Key Implementation Details
 
-### Tool Integration Patterns
-**Pattern**: All tools expose resources via standardized URI schemes
-- Enables semantic linking (wiki pages ↔ kanban tasks ↔ memory thoughts)
-- LLM context injection with related resources
-- Shared metadata fields like `project_id` for tool interoperability
+### MCP Server Structure
+Each MCP server follows a consistent pattern:
+```
+src/
+├── index.ts          # MCP server entry point
+├── tools/            # MCP tool implementations
+├── services/         # Business logic services  
+├── database/         # Database schemas and connections
+├── types/            # Server-specific types
+└── repositories/     # Data access layer
+```
 
-## No Build/Test Commands for Documentation
+### Web Client Architecture
+- **Next.js App Router**: Modern React architecture with server components
+- **TypeScript Path Resolution**: Configured for `@/` imports and core module imports
+- **Real-time Integration**: WebSocket connections for live updates
+- **Component Structure**: Modular UI components with Tailwind CSS styling
 
-The root documentation files don't have build commands - the value is in the comprehensive architectural specifications and design patterns documented across the markdown files.
+### API Gateway Pattern
+- **Unified REST API**: Single endpoint for all MCP server operations
+- **WebSocket Support**: Real-time bidirectional communication
+- **Authentication**: JWT-based auth system (production-ready)
+- **Request Routing**: Routes requests to appropriate MCP servers
 
-# User Notes
-- Please make sure to commit changes to git after finishing features. If features are significant enough, a new branch can be created and merged back to main/dev branch later on.
-- Always check `work_items.md` and keep it update to date with current status of work items. If new items are needed, please add them. You may sort the order of work items once a feature is completed depending on necessity, ONLY AFTER CONFIRMING WITH THE USER.
+## Production Features
+
+### Authentication System
+- JWT-based login/signup with secure sessions
+- User management and authorization
+- Session persistence and refresh tokens
+
+### Real-time Collaboration
+- WebSocket connections for live updates
+- Multi-user collaboration on kanban boards
+- Real-time wiki editing and comments
+- Live memory graph updates
+
+### Docker Deployment
+- Production-ready Docker configuration
+- Nginx reverse proxy setup
+- Database persistence and backups
+- Environment-based configuration
+
+## Development Workflow
+
+1. **Start Core**: Always build core package first: `cd core && npm run build`
+2. **Development Mode**: Run `npm run dev` in each component directory for hot reload
+3. **Type Checking**: Use `npm run typecheck` to verify TypeScript without building
+4. **Testing**: Run integration tests with `cd tests && npm test`
+5. **Production Build**: Use `npm run build` in each component for production deployment
+
+## Critical Notes
+
+- **Build Dependencies**: Core package must be built before other components
+- **Path Resolution**: Web client requires specific tsconfig.json configuration for module resolution
+- **MCP Protocol**: Servers implement MCP tools for AI integration - maintain tool schemas
+- **Real-time Features**: WebSocket connections require gateway to be running
+- **Database Support**: Multiple database types supported - configure via environment variables
+
+## Troubleshooting
+
+### TypeScript Path Resolution Issues
+If you see module resolution errors:
+1. Ensure core package is built: `cd core && npm run build`
+2. Check tsconfig.json path mappings
+3. For web client, verify both tsconfig.json and next.config.js configurations
+
+### MCP Server Connection Issues  
+- Verify MCP server is running on correct port
+- Check authentication credentials
+- Ensure database is initialized with `npm run db:migrate`
+
+### Real-time Updates Not Working
+- Confirm gateway WebSocket server is running
+- Check WebSocket connection in browser developer tools
+- Verify authentication tokens are valid

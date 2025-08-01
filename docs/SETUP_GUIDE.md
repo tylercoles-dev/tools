@@ -42,44 +42,90 @@ Complete guide for setting up the MCP Tools ecosystem for development, testing, 
 # Clone the repository
 git clone <repository-url>
 cd mcp_tools
-
-# Install all dependencies (this will install all packages in the monorepo)
-npm run install:all
 ```
 
-### 2. Build All Components
+### 2. Build All Components (Critical Order)
+
+**IMPORTANT**: Always build the core package first, as all other components depend on it.
 
 ```bash
-# Build shared types and core services first
+# 1. Build core package FIRST (required by all other components)
 cd core
+npm install
 npm run build
 
-# Build all other components
-npm run build:all
+# 2. Build other components (can be done in parallel after core is built)
+cd ../gateway
+npm install
+npm run build
+
+cd ../web
+npm install
+npm run build
+
+cd ../servers/kanban
+npm install
+npm run build
+
+cd ../servers/wiki
+npm install
+npm run build
+
+cd ../servers/memory
+npm install
+npm run build
+
+cd ../workers/embeddings
+npm install
+npm run build
+
+cd ../workers/markitdown
+npm install
+npm run build
+
+cd ../tests
+npm install
 ```
 
 ### 3. Start Development Environment
 
+For full development, you'll typically want to run multiple services:
+
 ```bash
-# Terminal 1: Start API Gateway
+# Terminal 1: Web Client (Frontend)
+cd web
+npm run dev
+# Runs on http://localhost:3000
+
+# Terminal 2: API Gateway (Backend API)
 cd gateway
 npm run dev
+# Runs on http://localhost:3001
 
-# Terminal 2: Start Embeddings Worker
-cd workers/embeddings
-npm run dev
-
-# Terminal 3: Start MCP Servers (as needed)
+# Terminal 3: MCP Servers (as needed)
 cd servers/kanban
 npm run dev
+
+# Terminal 4: Background Workers (optional)
+cd workers/embeddings
+npm run dev
 ```
+
+**Note**: The web client expects the API gateway to be running on port 3001 by default.
 
 ### 4. Verify Setup
 
-Visit the health check endpoint:
+Once your development environment is running, verify the setup:
+
 ```bash
-curl http://localhost:3000/api/health
+# Check API Gateway health
+curl http://localhost:3001/api/health
+
+# Check Web Client
+# Open browser to http://localhost:3000
 ```
+
+You should see the web client interface and a successful health check response.
 
 ## Component Setup
 

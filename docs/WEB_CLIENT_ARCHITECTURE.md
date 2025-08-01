@@ -9,34 +9,42 @@ The web client provides a unified interface for managing all MCP tools (Kanban, 
 ## Project Structure
 
 ```
-web-client/
+web/
 ├── src/
 │   ├── app/                    # Next.js App Router
-│   │   ├── (dashboard)/        # Dashboard layout group
-│   │   │   ├── kanban/        # Kanban pages
-│   │   │   ├── wiki/          # Wiki pages  
-│   │   │   ├── memory/        # Memory graph pages
-│   │   │   └── insights/      # Cross-tool insights
-│   │   ├── api/               # API routes
+│   │   ├── auth/              # Authentication pages
+│   │   │   ├── login/         # Login page
+│   │   │   └── signup/        # Signup page
+│   │   ├── dashboard/         # Main dashboard
+│   │   │   └── analytics/     # Analytics dashboard
+│   │   ├── kanban/            # Kanban boards
+│   │   │   └── [id]/         # Dynamic kanban board pages
+│   │   ├── wiki/              # Wiki pages
+│   │   │   └── [id]/         # Dynamic wiki pages
+│   │   ├── memory/            # Memory management
+│   │   │   └── [id]/         # Dynamic memory pages
 │   │   ├── globals.css
 │   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── providers.tsx      # App-wide providers
 │   ├── components/            # Reusable components
-│   │   ├── ui/               # Base UI components
-│   │   ├── kanban/           # Kanban-specific components
-│   │   ├── wiki/             # Wiki-specific components
-│   │   ├── memory/           # Memory-specific components
+│   │   ├── ui/               # Base UI components (shadcn/ui)
+│   │   ├── analytics/        # Analytics components
+│   │   ├── kanban/           # Kanban components
+│   │   ├── wiki/             # Wiki components
+│   │   ├── memory/           # Memory components
+│   │   ├── realtime/         # Real-time features
 │   │   └── shared/           # Cross-tool components
 │   ├── hooks/                # Custom React hooks
-│   ├── lib/                  # Utility functions
-│   ├── store/                # State management (Zustand)
-│   ├── types/                # TypeScript type definitions
-│   └── utils/                # Helper functions
+│   ├── lib/                  # Utility functions & API client
+│   └── pages/                # Static page components
 ├── public/                   # Static assets
+├── .eslintrc.json           # ESLint configuration
 ├── package.json
-├── tailwind.config.js
-├── tsconfig.json
-└── next.config.js
+├── postcss.config.js        # PostCSS configuration
+├── tailwind.config.js       # Tailwind CSS configuration
+├── tsconfig.json            # TypeScript configuration
+└── next.config.js           # Next.js configuration
 ```
 
 ## Core Architecture
@@ -45,46 +53,43 @@ web-client/
 
 ```tsx
 // src/app/layout.tsx
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/providers/theme-provider';
-import { WebSocketProvider } from '@/components/providers/websocket-provider';
-import { QueryProvider } from '@/components/providers/query-provider';
-import { Toaster } from '@/components/ui/sonner';
-import { Navigation } from '@/components/layout/navigation';
 import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { Providers } from './providers';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const metadata: Metadata = {
+  title: 'MCP Tools',
+  description: 'Modern productivity suite with advanced workflow management',
+  keywords: ['productivity', 'kanban', 'memory', 'wiki', 'collaboration'],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <QueryProvider>
-            <WebSocketProvider>
-              <div className="min-h-screen bg-background">
-                <Navigation />
-                <main className="container mx-auto py-6">
-                  {children}
-                </main>
-              </div>
-              <Toaster />
-            </WebSocketProvider>
-          </QueryProvider>
-        </ThemeProvider>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} h-full bg-gray-50 antialiased`}>
+        <Providers>
+          <div id="root" className="h-full">
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   );
 }
+```
+
+### Providers System
+
+```tsx
+// src/app/providers.tsx - Central provider configuration
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RealtimeProvider } from '@/components/realtime/realtime-provider';
+import { Toaster } from '@/components/ui/toaster';
+
+// Providers wrap the entire application with state management and real-time capabilities
 ```
 
 ### State Management with Zustand

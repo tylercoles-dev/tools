@@ -1,8 +1,8 @@
-# Analytics Testing Guide
+# MCP Tools Testing Guide
 
 ## 🧪 Overview
 
-This guide provides comprehensive testing strategies for the MCP Tools Analytics system, covering unit tests, integration tests, end-to-end tests, and performance testing.
+This guide provides comprehensive testing strategies for the MCP Tools ecosystem, covering unit tests, integration tests, end-to-end tests, and performance testing across all components.
 
 ## 📋 Testing Strategy
 
@@ -25,23 +25,82 @@ This guide provides comprehensive testing strategies for the MCP Tools Analytics
 
 ### Test Categories
 
-1. **Unit Tests**: Individual functions and components
-2. **Integration Tests**: API endpoints and database operations
-3. **E2E Tests**: Complete user workflows and real-time features
-4. **Performance Tests**: Load testing and response time validation
-5. **Security Tests**: Authentication and data protection
-6. **Accessibility Tests**: UI compliance and usability
+1. **Unit Tests**: Individual functions, components, and utilities
+2. **Integration Tests**: API endpoints, MCP servers, and database operations  
+3. **E2E Tests**: Complete user workflows, real-time features, and cross-service interactions
+4. **Performance Tests**: Load testing and system performance under stress
 
-## 🛠️ Test Setup
+## 🚀 Running Tests
 
 ### Prerequisites
 
+Build the core package first (required for all tests):
 ```bash
+cd core && npm install && npm run build
+```
+
+### Test Commands
+
+```bash
+cd tests
+
 # Install test dependencies
-npm install --save-dev @testing-library/react @testing-library/jest-dom
-npm install --save-dev jest supertest msw
-npm install --save-dev playwright @playwright/test
-npm install --save-dev artillery autocannon
+npm install
+
+# Run all tests
+npm test
+
+# Run specific test suites
+npm run test:integration    # Integration tests only
+npm run test:e2e           # End-to-end tests only  
+npm run test:performance   # Performance tests only
+
+# Run with coverage
+npm run test:coverage
+
+# Watch mode for development
+npm run test:watch
+```
+
+## 🏗️ Test Structure
+
+```
+tests/
+├── src/
+│   ├── e2e/              # End-to-end tests
+│   │   └── full-workflow.test.ts
+│   ├── integration/      # Integration tests
+│   │   ├── api-gateway.test.ts
+│   │   ├── kanban-workflow.test.ts
+│   │   └── embeddings-worker.test.ts
+│   ├── performance/      # Performance tests
+│   │   └── load-testing.test.ts
+│   ├── setup/           # Test setup and utilities
+│   │   ├── global-setup.ts
+│   │   ├── global-teardown.ts
+│   │   └── jest-setup.ts
+│   └── utils/           # Test utilities
+│       └── test-client.ts
+├── jest.config.js       # Jest configuration
+└── package.json        # Test dependencies and scripts
+```
+
+## 🛠️ Test Environment Setup
+
+The test suite includes automatic service startup and teardown:
+
+```bash
+# Start test services (if needed)
+npm run start:services
+
+# Stop test services  
+npm run stop:services
+
+# Setup test environment
+npm run setup
+
+# Teardown test environment
+npm run teardown
 ```
 
 ### Test Configuration
