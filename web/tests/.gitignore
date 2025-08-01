@@ -1,0 +1,29 @@
+# Test artifacts
+test-results/
+playwright-report/
+*.html
+*.xml
+*.json
+
+# Authentication state
+fixtures/auth.json
+
+# Screenshots and traces
+fixtures/screenshots/
+traces/
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
