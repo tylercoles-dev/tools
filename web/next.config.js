@@ -27,6 +27,7 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@mcp-tools/core': require('path').resolve(__dirname, '../core/dist'),
+      '@mcp-tools/core/shared': require('path').resolve(__dirname, '../core/dist/shared'),
     };
     
     return config;

@@ -210,7 +210,7 @@ export function useWebSocketSubscription(
       if (message.type === messageType) {
         handler(message.payload);
       }
-      config?.onOpen && config.onOpen;
+      config?.onOpen?.()
     },
   });
 

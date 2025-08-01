@@ -1,37 +1,87 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "ES2022"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
     "allowJs": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@web/*": ["./src/*"],
-      "@/components/*": ["./src/components/*"],
-      "@/hooks/*": ["./src/hooks/*"],
-      "@/lib/*": ["./src/lib/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/stores/*": ["./src/stores/*"],
-      "@/api/*": ["./src/api/*"],
-      "@components/*": ["./src/components/*"],
-      "@hooks/*": ["./src/hooks/*"],
-      "@lib/*": ["./src/lib/*"],
-      "@mcp-tools/core": ["../core/src/index.ts"],
-      "@mcp-tools/core/*": ["../core/src/*"],
-      "@shared/*": ["../core/src/shared/*"],
-      "@types/*": ["../core/src/shared/types/*"]
-    }
+      "@/*": [
+        "./src/*"
+      ],
+      "@web/*": [
+        "./src/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/types/*": [
+        "./src/types/*"
+      ],
+      "@/utils/*": [
+        "./src/utils/*"
+      ],
+      "@/stores/*": [
+        "./src/stores/*"
+      ],
+      "@/api/*": [
+        "./src/api/*"
+      ],
+      "@components/*": [
+        "./src/components/*"
+      ],
+      "@hooks/*": [
+        "./src/hooks/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ],
+      "@mcp-tools/core": [
+        "../core/dist"
+      ],
+      "@mcp-tools/core/*": [
+        "../core/dist/*"
+      ],
+      "@mcp-tools/core/shared": [
+        "../core/dist/shared/types"
+      ],
+      "@shared/*": [
+        "../core/dist/shared/*"
+      ],
+      "@types/*": [
+        "../core/dist/shared/types/*"
+      ]
+    },
+    "strictNullChecks": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
   "references": [
-    { "path": "../core" }
+    {
+      "path": "../core"
+    }
   ]
 }

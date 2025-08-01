@@ -8,7 +8,7 @@ import {
   MCPResourceRequest,
   ApiResponse,
   ApiError
-} from '@mcp-tools/core/shared';
+} from '@mcp-tools/core';
 
 interface ApiClientConfig {
   baseURL?: string;
