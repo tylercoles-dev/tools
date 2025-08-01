@@ -13,10 +13,12 @@ export { SignupPage } from './auth/signup-page';
 // Main application pages
 export { DashboardPage } from './dashboard-page';
 
+// Kanban pages
+export * from './kanban';
+
+// Wiki pages
+export * from './wiki';
+
 // TODO: Add these page objects as they are created
-// export { KanbanPage } from './kanban/kanban-page';
-// export { KanbanBoardPage } from './kanban/board-page';
-// export { WikiPage } from './wiki/wiki-page';
-// export { WikiPageDetailPage } from './wiki/page-detail-page';
 // export { MemoryPage } from './memory/memory-page';
 // export { MemoryDetailPage } from './memory/memory-detail-page';
