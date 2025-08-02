@@ -327,14 +327,32 @@ export class MemoryService {
     try {
       const stats = await this.database.getMemoryStats();
       
+      // Calculate real average importance
+      const averageImportance = await this.database.getAverageImportance();
+      
+      // Get most active users
+      const mostActiveUsers = await this.database.getMostActiveUsers(10);
+      
+      // Get top projects
+      const topProjects = await this.database.getTopProjects(10);
+      
+      // Get concept distribution
+      const conceptDistribution = await this.database.getConceptDistribution();
+      
       return {
         totalMemories: stats.totalMemories,
         totalRelationships: stats.totalRelationships,
         totalConcepts: stats.totalConcepts,
-        averageImportance: 2.5, // TODO: Calculate from database
-        mostActiveUsers: [], // TODO: Implement
-        topProjects: [], // TODO: Implement
-        conceptDistribution: {} // TODO: Implement
+        averageImportance,
+        mostActiveUsers: mostActiveUsers.map((user: any) => ({
+          userId: user.created_by,
+          count: user.memory_count
+        })),
+        topProjects: topProjects.map((project: any) => ({
+          projectName: project.project_name,
+          count: project.memory_count
+        })),
+        conceptDistribution
       };
     } catch (error) {
       console.error('Failed to get memory stats:', error);
@@ -342,8 +360,151 @@ export class MemoryService {
     }
   }
 
-  async mergeMemories(_primaryId: string, _secondaryIds: string[], _strategy: string): Promise<MemoryNode> {
-    throw new MemoryError('Memory merging not yet implemented', 'NOT_IMPLEMENTED', 501);
+  async mergeMemories(primaryId: string, secondaryIds: string[], strategy: 'combine' | 'replace' | 'append'): Promise<MemoryNode> {
+    try {
+      // Validate all memory IDs exist
+      const [primaryMemory, ...secondaryMemories] = await Promise.all([
+        this.database.getMemory(primaryId),
+        ...secondaryIds.map(id => this.database.getMemory(id))
+      ]);
+
+      if (!primaryMemory) {
+        throw new MemoryNotFoundError(primaryId);
+      }
+
+      const missingIds = secondaryIds.filter((id, index) => !secondaryMemories[index]);
+      if (missingIds.length > 0) {
+        throw new MemoryError(`Secondary memories not found: ${missingIds.join(', ')}`, 'NOT_FOUND', 404);
+      }
+
+      // Get concepts for all memories
+      const [primaryConcepts, ...secondaryConceptArrays] = await Promise.all([
+        this.database.getMemoryConcepts(primaryId),
+        ...secondaryIds.map(id => this.database.getMemoryConcepts(id))
+      ]);
+
+      // Merge content based on strategy
+      let mergedContent: string;
+      let mergedImportance: number;
+      let mergedMetadata: Record<string, any>;
+
+      switch (strategy) {
+        case 'combine':
+          mergedContent = [primaryMemory.content, ...secondaryMemories.filter(m => m).map(m => m!.content)].join('\n\n---\n\n');
+          mergedImportance = Math.max(primaryMemory.importance, ...secondaryMemories.filter(m => m).map(m => m!.importance));
+          mergedMetadata = this.mergeMetadata([
+            JSON.parse(primaryMemory.metadata || '{}'),
+            ...secondaryMemories.filter(m => m).map(m => JSON.parse(m!.metadata || '{}'))
+          ]);
+          break;
+
+        case 'replace':
+          // Use primary content but merge metadata and concepts
+          mergedContent = primaryMemory.content;
+          mergedImportance = Math.max(primaryMemory.importance, ...secondaryMemories.filter(m => m).map(m => m!.importance));
+          mergedMetadata = this.mergeMetadata([
+            JSON.parse(primaryMemory.metadata || '{}'),
+            ...secondaryMemories.filter(m => m).map(m => JSON.parse(m!.metadata || '{}'))
+          ]);
+          break;
+
+        case 'append':
+          mergedContent = primaryMemory.content + '\n\n' + secondaryMemories.filter(m => m).map(m => m!.content).join('\n\n');
+          mergedImportance = Math.max(primaryMemory.importance, ...secondaryMemories.filter(m => m).map(m => m!.importance));
+          mergedMetadata = this.mergeMetadata([
+            JSON.parse(primaryMemory.metadata || '{}'),
+            ...secondaryMemories.filter(m => m).map(m => JSON.parse(m!.metadata || '{}'))
+          ]);
+          break;
+
+        default:
+          throw new MemoryError(`Unknown merge strategy: ${strategy}`, 'INVALID_STRATEGY', 400);
+      }
+
+      // Merge concepts (deduplicate by name)
+      const allConcepts = [primaryConcepts, ...secondaryConceptArrays].flat();
+      const uniqueConcepts = allConcepts.reduce((acc, concept) => {
+        const existing = acc.find(c => c.name === concept.name);
+        if (existing) {
+          // Keep the one with higher confidence
+          if (concept.confidence > existing.confidence) {
+            acc[acc.indexOf(existing)] = concept;
+          }
+        } else {
+          acc.push(concept);
+        }
+        return acc;
+      }, [] as typeof allConcepts);
+
+      // Generate new content hash
+      const contentHash = crypto
+        .createHash('sha256')
+        .update(mergedContent)
+        .digest('hex');
+
+      // Update primary memory with merged data
+      const updatedMemory = await this.database.updateMemory(primaryId, {
+        content: mergedContent,
+        content_hash: contentHash,
+        importance: mergedImportance,
+        metadata: JSON.stringify(mergedMetadata),
+        status: 'active'
+      });
+
+      // Clear and re-link concepts
+      await this.database.clearMemoryConcepts(primaryId);
+      for (const concept of uniqueConcepts) {
+        await this.database.linkMemoryConcept(primaryId, concept.id);
+      }
+
+      // Update vector embedding with new content
+      if (updatedMemory.vector_id) {
+        await this.vectorEngine.updateVector(
+          updatedMemory.vector_id,
+          mergedContent,
+          JSON.parse(updatedMemory.context)
+        );
+      }
+
+      // Mark secondary memories as merged and redirect relationships
+      for (let i = 0; i < secondaryIds.length; i++) {
+        const secondaryId = secondaryIds[i];
+        
+        // Update status to merged with reference to primary
+        const secondaryMemory = secondaryMemories[i];
+        if (secondaryMemory) {
+          await this.database.updateMemory(secondaryId, {
+            status: 'merged',
+            metadata: JSON.stringify({
+              ...JSON.parse(secondaryMemory.metadata || '{}'),
+              merged_into: primaryId,
+              merged_at: new Date().toISOString(),
+              merge_strategy: strategy
+            })
+          });
+        }
+
+        // Redirect relationships from secondary to primary
+        await this.redirectRelationships(secondaryId, primaryId);
+      }
+
+      // Create audit trail
+      await this.createMergeAuditTrail(primaryId, secondaryIds, strategy);
+
+      // Convert and return the merged memory
+      return this.convertToMemoryNode(updatedMemory, uniqueConcepts.map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description || undefined,
+        type: c.type,
+        confidence: c.confidence,
+        extractedAt: c.extracted_at
+      })));
+
+    } catch (error) {
+      console.error('Failed to merge memories:', error);
+      throw error;
+    }
   }
 
   // Helper methods
@@ -400,6 +561,96 @@ export class MemoryService {
     } catch (error) {
       console.error('Failed to create automatic relationships:', error);
       // Don't throw - this is optional
+    }
+  }
+
+  private mergeMetadata(metadataArray: Record<string, any>[]): Record<string, any> {
+    const merged: Record<string, any> = {};
+    
+    for (const metadata of metadataArray) {
+      for (const [key, value] of Object.entries(metadata)) {
+        if (merged[key] === undefined) {
+          merged[key] = value;
+        } else if (Array.isArray(merged[key]) && Array.isArray(value)) {
+          // Merge arrays and deduplicate
+          merged[key] = [...new Set([...merged[key], ...value])];
+        } else if (typeof merged[key] === 'object' && typeof value === 'object' && merged[key] !== null && value !== null) {
+          // Recursively merge objects
+          merged[key] = this.mergeMetadata([merged[key], value]);
+        } else if (merged[key] !== value) {
+          // For conflicting primitive values, create an array
+          if (!Array.isArray(merged[key])) {
+            merged[key] = [merged[key]];
+          }
+          if (!merged[key].includes(value)) {
+            merged[key].push(value);
+          }
+        }
+      }
+    }
+    
+    return merged;
+  }
+
+  private async redirectRelationships(fromMemoryId: string, toMemoryId: string): Promise<void> {
+    try {
+      const relationships = await this.database.getRelationships(fromMemoryId);
+      
+      for (const rel of relationships) {
+        // Skip if this relationship already connects to the target memory
+        if ((rel.source_id === toMemoryId && rel.target_id === fromMemoryId) ||
+            (rel.source_id === fromMemoryId && rel.target_id === toMemoryId)) {
+          continue;
+        }
+
+        // Create new relationship with the target memory
+        const newSourceId = rel.source_id === fromMemoryId ? toMemoryId : rel.source_id;
+        const newTargetId = rel.target_id === fromMemoryId ? toMemoryId : rel.target_id;
+        
+        // Check if this relationship already exists
+        const existingRels = await this.database.getRelationships(toMemoryId);
+        const alreadyExists = existingRels.some(existing => 
+          (existing.source_id === newSourceId && existing.target_id === newTargetId) ||
+          (existing.source_id === newTargetId && existing.target_id === newSourceId && existing.bidirectional)
+        );
+
+        if (!alreadyExists) {
+          await this.database.createRelationship({
+            source_id: newSourceId,
+            target_id: newTargetId,
+            relationship_type: rel.relationship_type,
+            strength: rel.strength,
+            bidirectional: rel.bidirectional,
+            metadata: JSON.stringify({
+              ...JSON.parse(rel.metadata),
+              redirected_from: fromMemoryId,
+              redirected_at: new Date().toISOString()
+            }),
+            last_updated: new Date().toISOString()
+          });
+        }
+
+        // Delete the old relationship
+        await this.database.deleteRelationship(rel.id);
+      }
+    } catch (error) {
+      console.error('Failed to redirect relationships:', error);
+      // Don't throw - this is optional cleanup
+    }
+  }
+
+  private async createMergeAuditTrail(primaryId: string, secondaryIds: string[], strategy: string): Promise<void> {
+    try {
+      await this.database.createMergeAuditTrail({
+        primary_memory_id: primaryId,
+        merged_memory_ids: JSON.stringify(secondaryIds),
+        strategy,
+        created_at: new Date().toISOString(),
+        created_by: null // TODO: Add user context tracking
+      });
+    } catch (error) {
+      console.error('Failed to create merge audit trail:', error);
+      // Don't throw - this is optional audit logging
     }
   }
 }

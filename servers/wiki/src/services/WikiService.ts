@@ -291,32 +291,278 @@ export class WikiService {
     await this.db.deleteComment(commentId);
   }
 
+  // Page history operations
+  async getPageHistory(pageId: number): Promise<any[]> {
+    const page = await this.db.getPageById(pageId);
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    return await this.db.getPageHistory(pageId);
+  }
+
+  async restorePageVersion(pageId: number, historyId: number, restoredBy?: string): Promise<Page> {
+    const [page, history] = await Promise.all([
+      this.db.getPageById(pageId),
+      this.db.kysely
+        .selectFrom('page_history')
+        .selectAll()
+        .where('id', '=', historyId)
+        .where('page_id', '=', pageId)
+        .executeTakeFirst()
+    ]);
+
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    if (!history) {
+      throw new Error(`History entry with ID ${historyId} not found for page ${pageId}`);
+    }
+
+    // Create history entry for current version before restoration
+    await this.createPageHistory(pageId, page, restoredBy, `Restored to version from ${history.created_at}`);
+
+    // Restore the page content
+    const updates: PageUpdate = {
+      title: history.title,
+      content: history.content,
+      summary: history.summary,
+      updated_by: restoredBy || null,
+    };
+
+    // Generate new slug if title changed
+    if (history.title !== page.title) {
+      updates.slug = this.markdownProcessor.generateSlug(history.title);
+    }
+
+    // Process internal links from restored content
+    const parsed = this.markdownProcessor.parse(history.content);
+    await this.processPageLinks(pageId, parsed.links);
+
+    return await this.db.updatePage(pageId, updates);
+  }
+
+  // Page links operations
+  async getPageLinks(pageId: number): Promise<any[]> {
+    const page = await this.db.getPageById(pageId);
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    return await this.db.getPageLinks(pageId);
+  }
+
+  async getPageBacklinks(pageId: number): Promise<any[]> {
+    const page = await this.db.getPageById(pageId);
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    return await this.db.getPageBacklinks(pageId);
+  }
+
+  // Category assignment operations (public methods)
+  async updatePageCategories(pageId: number, categoryIds: number[]): Promise<void> {
+    const page = await this.db.getPageById(pageId);
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    await this.assignCategoriesToPage(pageId, categoryIds);
+  }
+
+  // Tag assignment operations (public methods)
+  async updatePageTags(pageId: number, tagNames: string[]): Promise<void> {
+    const page = await this.db.getPageById(pageId);
+    if (!page) {
+      throw new Error(`Page with ID ${pageId} not found`);
+    }
+
+    await this.assignTagsToPage(pageId, tagNames);
+  }
+
+  // Enhanced search with filters
+  async searchPagesAdvanced(request: {
+    query?: string;
+    category_ids?: number[];
+    tag_names?: string[];
+    include_drafts?: boolean;
+    author?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+  }): Promise<SearchResult[]> {
+    const { 
+      query, 
+      category_ids, 
+      tag_names, 
+      include_drafts = false, 
+      author,
+      date_from,
+      date_to,
+      limit = 50 
+    } = request;
+
+    let pages = query ? await this.db.searchPages(query, limit * 2) : await this.db.getPages();
+
+    // Filter by publication status
+    if (!include_drafts) {
+      pages = pages.filter(page => page.is_published);
+    }
+
+    // Filter by author
+    if (author) {
+      pages = pages.filter(page => 
+        page.created_by === author || page.updated_by === author
+      );
+    }
+
+    // Filter by date range
+    if (date_from) {
+      pages = pages.filter(page => page.created_at >= date_from);
+    }
+    if (date_to) {
+      pages = pages.filter(page => page.created_at <= date_to);
+    }
+
+    // Filter by categories
+    if (category_ids && category_ids.length > 0) {
+      const categoryPages = new Set();
+      for (const page of pages) {
+        const categories = await this.db.getPageCategories(page.id!);
+        if (categories.some(cat => category_ids.includes(cat.id!))) {
+          categoryPages.add(page.id);
+        }
+      }
+      pages = pages.filter(page => categoryPages.has(page.id));
+    }
+
+    // Filter by tags
+    if (tag_names && tag_names.length > 0) {
+      const tagPages = new Set();
+      for (const page of pages) {
+        const tags = await this.db.getPageTags(page.id!);
+        const pageTagNames = tags.map(tag => tag.name);
+        if (tag_names.some(tagName => pageTagNames.includes(tagName))) {
+          tagPages.add(page.id);
+        }
+      }
+      pages = pages.filter(page => tagPages.has(page.id));
+    }
+
+    // Limit results
+    pages = pages.slice(0, limit);
+
+    // Convert to search results
+    return pages.map(page => ({
+      page,
+      excerpt: page.summary || undefined,
+      score: 1.0, // TODO: Implement proper scoring based on query relevance
+    }));
+  }
+
   // Statistics
   async getStats(): Promise<WikiStats> {
     const baseStats = await this.db.getStats();
     
-    // TODO: Add recent activity and popular pages
+    // Get recent activity from page history
+    const recentActivity = await this.db.kysely
+      .selectFrom('page_history')
+      .innerJoin('pages', 'pages.id', 'page_history.page_id')
+      .select([
+        'page_history.id',
+        'page_history.page_id',
+        'page_history.changed_by',
+        'page_history.change_reason',
+        'page_history.created_at',
+        'pages.title as page_title',
+        'pages.slug as page_slug',
+      ])
+      .orderBy('page_history.created_at', 'desc')
+      .limit(10)
+      .execute();
+
+    // Get popular pages (most linked to)
+    const popularPages = await this.db.kysely
+      .selectFrom('pages')
+      .leftJoin('page_links', 'page_links.target_page_id', 'pages.id')
+      .select([
+        'pages.id',
+        'pages.title',
+        'pages.slug',
+        'pages.summary',
+        'pages.updated_at',
+      ])
+      .select((eb) => eb.fn.count('page_links.id').as('link_count'))
+      .groupBy(['pages.id', 'pages.title', 'pages.slug', 'pages.summary', 'pages.updated_at'])
+      .orderBy('link_count', 'desc')
+      .limit(10)
+      .execute();
+    
     return {
       ...baseStats,
-      recent_activity: [],
-      popular_pages: [],
+      recent_activity: recentActivity.map(activity => ({
+        id: activity.id,
+        type: 'page_updated',
+        page_id: activity.page_id,
+        page_title: activity.page_title,
+        page_slug: activity.page_slug,
+        user: activity.changed_by,
+        description: activity.change_reason || 'Page updated',
+        timestamp: activity.created_at,
+      })),
+      popular_pages: popularPages.map(page => ({
+        id: page.id,
+        title: page.title,
+        slug: page.slug,
+        summary: page.summary,
+        link_count: Number(page.link_count),
+        updated_at: page.updated_at,
+      })),
     };
   }
 
   // Private helper methods
   private async assignCategoriesToPage(pageId: number, categoryIds: number[]): Promise<void> {
     // Remove existing categories
-    // TODO: Implement removal of existing categories
+    const existingCategories = await this.db.getPageCategories(pageId);
+    for (const category of existingCategories) {
+      await this.db.kysely
+        .deleteFrom('page_categories')
+        .where('page_id', '=', pageId)
+        .where('category_id', '=', category.id!)
+        .execute();
+    }
     
     // Add new categories
     for (const categoryId of categoryIds) {
-      // TODO: Implement category assignment
+      // Verify category exists
+      const category = await this.db.kysely
+        .selectFrom('categories')
+        .select('id')
+        .where('id', '=', categoryId)
+        .executeTakeFirst();
+      
+      if (!category) {
+        throw new Error(`Category with ID ${categoryId} not found`);
+      }
+      
+      // Add category assignment
+      await this.db.kysely
+        .insertInto('page_categories')
+        .values({ page_id: pageId, category_id: categoryId })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
     }
   }
 
   private async assignTagsToPage(pageId: number, tagNames: string[]): Promise<void> {
     // Remove existing tags
-    // TODO: Implement removal of existing tags
+    const existingTags = await this.db.getPageTags(pageId);
+    for (const tag of existingTags) {
+      await this.db.removePageTag(pageId, tag.id!);
+    }
     
     // Create or get tags and assign them
     for (const tagName of tagNames) {
@@ -326,14 +572,53 @@ export class WikiService {
   }
 
   private async processPageLinks(pageId: number, links: string[]): Promise<void> {
-    // TODO: Process internal links and create link relationships
-    // This would involve:
-    // 1. Parsing wiki-style links [[PageName]]
-    // 2. Finding target pages by slug
-    // 3. Creating entries in page_links table
+    // Remove existing links from this page
+    await this.db.kysely
+      .deleteFrom('page_links')
+      .where('source_page_id', '=', pageId)
+      .execute();
+
+    // Process each internal link
+    for (const link of links) {
+      // Parse wiki-style links [[PageName]] or [[PageName|Display Text]]
+      const linkMatch = link.match(/^\[\[([^|\]]+)(?:\|([^\]]+))?\]\]$/);
+      if (!linkMatch) continue;
+
+      const targetSlug = this.markdownProcessor.generateSlug(linkMatch[1]);
+      const displayText = linkMatch[2] || linkMatch[1];
+
+      // Find target page by slug
+      const targetPage = await this.db.getPageBySlug(targetSlug);
+      if (!targetPage) {
+        // Link to non-existent page - we could create a "broken link" entry
+        // or skip it. For now, we'll skip broken links.
+        continue;
+      }
+
+      // Create link relationship
+      await this.db.kysely
+        .insertInto('page_links')
+        .values({
+          source_page_id: pageId,
+          target_page_id: targetPage.id!,
+          link_text: displayText,
+        })
+        .onConflict((oc) => oc.doNothing())
+        .execute();
+    }
   }
 
   private async createPageHistory(pageId: number, page: Page, changedBy?: string, reason?: string): Promise<void> {
-    // TODO: Implement page history creation
+    await this.db.kysely
+      .insertInto('page_history')
+      .values({
+        page_id: pageId,
+        title: page.title,
+        content: page.content,
+        summary: page.summary,
+        changed_by: changedBy || null,
+        change_reason: reason || null,
+      })
+      .execute();
   }
 }

@@ -23,6 +23,8 @@ export * from './board-config';
 
 // Analytics
 export * from './analytics';
+export { KanbanActivityFeed } from './KanbanActivityFeed';
+export { KanbanAnalyticsDashboard } from './KanbanAnalyticsDashboard';
 
 // Legacy components (for backward compatibility)
 export { DraggableCard } from './draggable-card';

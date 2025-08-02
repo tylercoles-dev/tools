@@ -36,6 +36,7 @@ export class ScraperService {
 
   async scrapeUrl(input: ScrapeUrlInput): Promise<ScrapedContent> {
     const args = validateInput(ScrapeUrlSchema, input) as ProcessedScrapeUrlInput;
+    const startTime = Date.now();
     
     try {
       // Check if we already have this content (deduplication)
@@ -52,6 +53,21 @@ export class ScraperService {
 
       // Perform the scraping
       const scrapedContent = await this.engine.scrapeUrl(args);
+      const processingTime = Date.now() - startTime;
+      
+      // Extract domain from URL
+      const domain = this.extractDomain(scrapedContent.url);
+      
+      // Store performance metrics
+      await this.database.createPerformanceMetric({
+        url: scrapedContent.url,
+        domain,
+        processing_time_ms: processingTime,
+        content_size_bytes: scrapedContent.content?.length || null,
+        status_code: null, // TODO: Add status code tracking to scraping engine
+        error_message: scrapedContent.errorMessage || null,
+        timestamp: new Date().toISOString()
+      });
       
       // Store in database
       const pageRecord = await this.database.createPage({
@@ -67,6 +83,20 @@ export class ScraperService {
 
       return this.convertToScrapedContent(pageRecord);
     } catch (error) {
+      const processingTime = Date.now() - startTime;
+      const domain = this.extractDomain(args.url);
+      
+      // Store failed performance metrics
+      await this.database.createPerformanceMetric({
+        url: args.url,
+        domain,
+        processing_time_ms: processingTime,
+        content_size_bytes: null,
+        status_code: null,
+        error_message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+      
       console.error('Failed to scrape URL:', error);
       throw error;
     }
@@ -196,14 +226,15 @@ export class ScraperService {
 
   async getStats(): Promise<ScraperStats> {
     try {
-      const [basicStats, topDomains] = await Promise.all([
+      const [basicStats, topDomains, avgProcessingTime] = await Promise.all([
         this.database.getStats(),
-        this.database.getTopDomains(10)
+        this.database.getTopDomains(10),
+        this.database.getAverageProcessingTime('24h')
       ]);
 
       return {
         ...basicStats,
-        averageProcessingTime: 5000, // TODO: Calculate from actual data
+        averageProcessingTime: avgProcessingTime,
         topDomains
       };
     } catch (error) {
@@ -298,7 +329,63 @@ export class ScraperService {
     }, intervalMs);
   }
 
+  // Performance monitoring methods
+  async getPerformanceMetrics(filters: {
+    domain?: string;
+    limit?: number;
+    offset?: number;
+    since?: string;
+  } = {}) {
+    return await this.database.getPerformanceMetrics(filters);
+  }
+
+  async getDomainPerformanceStats(domain: string, timeframe: '1h' | '24h' | '7d' | '30d' = '24h') {
+    return await this.database.getDomainPerformanceStats(domain, timeframe);
+  }
+
+  async getPerformanceTrends(timeframe: '7d' | '30d' = '7d') {
+    return await this.database.getPerformanceTrends(timeframe);
+  }
+
+  async getDetailedStats(timeframe: '1h' | '24h' | '7d' | '30d' = '24h') {
+    try {
+      const [
+        basicStats,
+        topDomains,
+        avgProcessingTime,
+        performanceTrends
+      ] = await Promise.all([
+        this.database.getStats(),
+        this.database.getTopDomains(10),
+        this.database.getAverageProcessingTime(timeframe),
+        this.database.getPerformanceTrends(timeframe === '1h' || timeframe === '24h' ? '7d' : '30d')
+      ]);
+
+      return {
+        ...basicStats,
+        averageProcessingTime: avgProcessingTime,
+        topDomains,
+        performanceTrends,
+        timeframe
+      };
+    } catch (error) {
+      console.error('Failed to get detailed stats:', error);
+      throw error;
+    }
+  }
+
   // Helper methods
+  private extractDomain(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname;
+    } catch (error) {
+      // Fallback for malformed URLs
+      const match = url.match(/^https?:\/\/([^\/]+)/);
+      return match ? match[1] : 'unknown';
+    }
+  }
+
   private convertToScrapedContent(pageRecord: any): ScrapedContent {
     return {
       id: pageRecord.id,

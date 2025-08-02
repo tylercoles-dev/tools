@@ -18,6 +18,14 @@ export interface MemoryDatabase {
     concept_id: string;
     created_at: string;
   };
+  memory_merges: {
+    id: string;
+    primary_memory_id: string;
+    merged_memory_ids: string;
+    strategy: string;
+    created_at: string;
+    created_by: string | null;
+  };
 }
 
 import type { DatabaseConfig } from '../../utils/database.js';
@@ -334,6 +342,111 @@ export class MemoryDatabaseManager {
       totalRelationships: Number(relationshipCount.count),
       totalConcepts: Number(conceptCount.count)
     };
+  }
+
+  async getAverageImportance(): Promise<number> {
+    const result = await this.db
+      .selectFrom('memories')
+      .select(sql`avg(importance)`.as('average'))
+      .where('status', '=', 'active')
+      .executeTakeFirst();
+    
+    return Number(result?.average) || 1;
+  }
+
+  async getMostActiveUsers(limit: number = 10): Promise<Array<{ created_by: string; memory_count: number }>> {
+    const results = await this.db
+      .selectFrom('memories')
+      .select(['created_by', sql`count(*)`.as('memory_count')])
+      .where('created_by', 'is not', null)
+      .where('status', '=', 'active')
+      .groupBy('created_by')
+      .orderBy('memory_count', 'desc')
+      .limit(limit)
+      .execute();
+    
+    return results.map(r => ({
+      created_by: r.created_by!,
+      memory_count: Number(r.memory_count)
+    }));
+  }
+
+  async getTopProjects(limit: number = 10): Promise<Array<{ project_name: string; memory_count: number }>> {
+    const results = await this.db
+      .selectFrom('memories')
+      .select([
+        sql`JSON_EXTRACT(context, '$.projectName')`.as('project_name'),
+        sql`count(*)`.as('memory_count')
+      ])
+      .where('status', '=', 'active')
+      .where(sql`JSON_EXTRACT(context, '$.projectName')`, 'is not', null)
+      .groupBy(sql`JSON_EXTRACT(context, '$.projectName')`)
+      .orderBy('memory_count', 'desc')
+      .limit(limit)
+      .execute();
+    
+    return results.map(r => ({
+      project_name: r.project_name as string,
+      memory_count: Number(r.memory_count)
+    }));
+  }
+
+  async getConceptDistribution(): Promise<Record<string, number>> {
+    const results = await this.db
+      .selectFrom('concepts')
+      .select(['type', sql`count(*)`.as('count')])
+      .groupBy('type')
+      .execute();
+    
+    const distribution: Record<string, number> = {};
+    for (const result of results) {
+      distribution[result.type] = Number(result.count);
+    }
+    
+    return distribution;
+  }
+
+  async clearMemoryConcepts(memoryId: string): Promise<void> {
+    await this.db
+      .deleteFrom('memory_concepts')
+      .where('memory_id', '=', memoryId)
+      .execute();
+  }
+
+  async deleteRelationship(relationshipId: string): Promise<void> {
+    await this.db
+      .deleteFrom('relationships')
+      .where('id', '=', relationshipId)
+      .execute();
+  }
+
+  async createMergeAuditTrail(auditData: {
+    primary_memory_id: string;
+    merged_memory_ids: string;
+    strategy: string;
+    created_at: string;
+    created_by: string | null;
+  }): Promise<void> {
+    // Create merge_audit table if it doesn't exist
+    await this.db.schema
+      .createTable('memory_merges')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('primary_memory_id', 'text', (col) => col.notNull())
+      .addColumn('merged_memory_ids', 'text', (col) => col.notNull())
+      .addColumn('strategy', 'text', (col) => col.notNull())
+      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('created_by', 'text')
+      .execute();
+
+    // Insert audit record
+    await this.db
+      .insertInto('memory_merges')
+      .values({
+        id: crypto.randomUUID(),
+        ...auditData
+      })
+      .execute();
   }
 
   async close(): Promise<void> {

@@ -1,0 +1,544 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18'
+  QUALITY_REPORT_PATH: './reports'
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        check-type: [technical-debt, security, performance, complexity]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Full history for trend analysis
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.npm
+          node_modules
+          */node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd core && npm ci && npm run build
+        cd ../gateway && npm ci
+        cd ../web && npm ci
+        cd ../servers/kanban && npm ci
+        cd ../servers/memory && npm ci
+        cd ../servers/wiki && npm ci
+    
+    - name: Create reports directory
+      run: mkdir -p ${{ env.QUALITY_REPORT_PATH }}
+    
+    - name: Run Technical Debt Analysis
+      if: matrix.check-type == 'technical-debt'
+      run: |
+        echo "Running technical debt analysis..."
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              technicalDebt: { enabled: true }
+            },
+            reportOutputDir: '${{ env.QUALITY_REPORT_PATH }}'
+          });
+          
+          async function run() {
+            const debt = await service.scanTechnicalDebt();
+            console.log(\`Found \${debt.length} technical debt items\`);
+            
+            const criticalDebt = debt.filter(d => d.severity === 'critical');
+            if (criticalDebt.length > 5) {
+              console.error(\`❌ Too many critical debt items: \${criticalDebt.length}\`);
+              process.exit(1);
+            }
+            
+            console.log('✅ Technical debt analysis passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Technical debt analysis failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Run Security Scan
+      if: matrix.check-type == 'security'
+      run: |
+        echo "Running security vulnerability scan..."
+        npm audit --audit-level=moderate
+        
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              security: { enabled: true, auditLevel: 'moderate' }
+            },
+            reportOutputDir: '${{ env.QUALITY_REPORT_PATH }}'
+          });
+          
+          async function run() {
+            const vulns = await service.scanSecurity();
+            console.log(\`Found \${vulns.length} security vulnerabilities\`);
+            
+            const criticalVulns = vulns.filter(v => v.severity === 'critical');
+            if (criticalVulns.length > 0) {
+              console.error(\`❌ Critical vulnerabilities found: \${criticalVulns.length}\`);
+              process.exit(1);
+            }
+            
+            const highVulns = vulns.filter(v => v.severity === 'high');
+            if (highVulns.length > 3) {
+              console.error(\`❌ Too many high severity vulnerabilities: \${highVulns.length}\`);
+              process.exit(1);
+            }
+            
+            console.log('✅ Security scan passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Security scan failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Run Performance Budget Check
+      if: matrix.check-type == 'performance'
+      run: |
+        echo "Checking performance budgets..."
+        
+        # Build all packages to check sizes
+        cd core && npm run build
+        cd ../gateway && npm run build
+        cd ../web && npm run build
+        cd ../servers/kanban && npm run build
+        cd ../servers/memory && npm run build
+        cd ../servers/wiki && npm run build
+        cd ..
+        
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              performance: { enabled: true }
+            },
+            reportOutputDir: '${{ env.QUALITY_REPORT_PATH }}'
+          });
+          
+          async function run() {
+            const budgets = await service.scanPerformance();
+            console.log(\`Checked \${budgets.length} performance budgets\`);
+            
+            const violations = budgets.filter(b => !b.isCompliant);
+            if (violations.length > 0) {
+              console.error(\`❌ Performance budget violations: \${violations.length}\`);
+              violations.forEach(v => {
+                console.error(\`  - \${v.bundleName}: \${v.currentSize} (max: \${v.maximumError})\`);
+              });
+              process.exit(1);
+            }
+            
+            console.log('✅ Performance budget check passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Performance budget check failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Run Complexity Analysis
+      if: matrix.check-type == 'complexity'
+      run: |
+        echo "Running code complexity analysis..."
+        
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              complexity: { enabled: true, cyclomaticThreshold: 10, cognitiveThreshold: 15 }
+            },
+            reportOutputDir: '${{ env.QUALITY_REPORT_PATH }}'
+          });
+          
+          async function run() {
+            const metrics = await service.scanComplexity();
+            console.log(\`Analyzed \${metrics.length} functions\`);
+            
+            const criticalComplexity = metrics.filter(m => m.severity === 'critical');
+            if (criticalComplexity.length > 5) {
+              console.error(\`❌ Too many critically complex functions: \${criticalComplexity.length}\`);
+              process.exit(1);
+            }
+            
+            const highComplexity = metrics.filter(m => m.severity === 'high');
+            if (highComplexity.length > 15) {
+              console.error(\`❌ Too many highly complex functions: \${highComplexity.length}\`);
+              process.exit(1);
+            }
+            
+            console.log('✅ Complexity analysis passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Complexity analysis failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Upload Quality Reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-reports-${{ matrix.check-type }}
+        path: ${{ env.QUALITY_REPORT_PATH }}/*.html
+        retention-days: 30
+
+  comprehensive-quality-report:
+    runs-on: ubuntu-latest
+    needs: quality-check
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd core && npm ci && npm run build
+    
+    - name: Create reports directory
+      run: mkdir -p ${{ env.QUALITY_REPORT_PATH }}
+    
+    - name: Generate Comprehensive Quality Report
+      run: |
+        echo "Generating comprehensive quality report..."
+        
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              technicalDebt: { enabled: true },
+              security: { enabled: true },
+              performance: { enabled: true },
+              complexity: { enabled: true }
+            },
+            reportOutputDir: '${{ env.QUALITY_REPORT_PATH }}'
+          });
+          
+          async function run() {
+            console.log('Running full quality scan...');
+            const report = await service.runFullScan();
+            
+            console.log('📊 Quality Report Summary:');
+            console.log(\`  Overall Score: \${report.overall.qualityScore}/100\`);
+            console.log(\`  Grade: \${report.overall.grade}\`);
+            console.log(\`  Trend: \${report.overall.trend}\`);
+            console.log(\`  Technical Debt: \${report.technicalDebt.totalItems} items\`);
+            console.log(\`  Security Issues: \${report.security.vulnerabilityCount} vulnerabilities\`);
+            console.log(\`  Performance: \${report.performance.failingBudgets} budget violations\`);
+            console.log(\`  Coverage: \${report.coverage.percentage}%\`);
+            
+            // Quality gates
+            if (report.overall.qualityScore < 70) {
+              console.error('❌ Quality score below threshold (70)');
+              process.exit(1);
+            }
+            
+            if (report.overall.grade === 'F') {
+              console.error('❌ Quality grade is F');
+              process.exit(1);
+            }
+            
+            console.log('✅ Comprehensive quality check passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Quality report generation failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Download All Quality Reports
+      uses: actions/download-artifact@v3
+      with:
+        path: downloaded-reports
+    
+    - name: Combine Reports
+      run: |
+        echo "Creating combined report index..."
+        cat > ${{ env.QUALITY_REPORT_PATH }}/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Quality Reports - ${{ github.sha }}</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; text-align: center; }
+                .reports { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 30px 0; }
+                .report-card { background: white; border: 1px solid #e1e5e9; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                .report-card h3 { margin: 0 0 10px 0; color: #495057; }
+                .report-link { display: inline-block; padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+                .meta { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Quality Reports</h1>
+                <p>Commit: ${{ github.sha }}</p>
+                <p>Branch: ${{ github.ref_name }}</p>
+                <p>Generated: $(date)</p>
+            </div>
+            
+            <div class="meta">
+                <h3>Build Information</h3>
+                <p><strong>Workflow:</strong> ${{ github.workflow }}</p>
+                <p><strong>Run ID:</strong> ${{ github.run_id }}</p>
+                <p><strong>Actor:</strong> ${{ github.actor }}</p>
+            </div>
+            
+            <div class="reports">
+                <div class="report-card">
+                    <h3>📝 Technical Debt Analysis</h3>
+                    <p>Analysis of TODO, FIXME, HACK comments and code debt</p>
+                    <a href="./technical-debt.html" class="report-link">View Report</a>
+                </div>
+                
+                <div class="report-card">
+                    <h3>🔒 Security Scan</h3>
+                    <p>Vulnerability analysis and dependency security check</p>
+                    <a href="./security.html" class="report-link">View Report</a>
+                </div>
+                
+                <div class="report-card">
+                    <h3>⚡ Performance Budget</h3>
+                    <p>Bundle size analysis and performance budget compliance</p>
+                    <a href="./performance.html" class="report-link">View Report</a>
+                </div>
+                
+                <div class="report-card">
+                    <h3>📊 Code Complexity</h3>
+                    <p>Cyclomatic and cognitive complexity analysis</p>
+                    <a href="./complexity.html" class="report-link">View Report</a>
+                </div>
+                
+                <div class="report-card">
+                    <h3>📋 Comprehensive Report</h3>
+                    <p>Overall quality score and recommendations</p>
+                    <a href="./quality-report.html" class="report-link">View Report</a>
+                </div>
+            </div>
+        </body>
+        </html>
+        EOF
+    
+    - name: Upload Comprehensive Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-reports-comprehensive
+        path: ${{ env.QUALITY_REPORT_PATH }}
+        retention-days: 90
+    
+    - name: Comment PR with Quality Report
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          // Read the latest quality report data (this would need to be extracted from the actual report)
+          const reportSummary = `
+          ## 📊 Quality Report
+          
+          **Overall Quality Score:** Loading...
+          **Grade:** Loading...
+          **Trend:** Loading...
+          
+          ### Summary
+          - **Technical Debt:** Loading...
+          - **Security Issues:** Loading...
+          - **Performance:** Loading...
+          - **Code Coverage:** Loading...
+          
+          [📋 View Detailed Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          _Generated by Quality Gates workflow on ${new Date().toISOString()}_
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: reportSummary
+          });
+
+  quality-gates-check:
+    runs-on: ubuntu-latest
+    needs: comprehensive-quality-report
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd core && npm ci && npm run build
+    
+    - name: Check Quality Gates
+      run: |
+        echo "Checking quality gates for PR..."
+        
+        node -e "
+          import { QualityService } from './core/dist/services/quality/service.js';
+          
+          const service = new QualityService({
+            projectPath: process.cwd(),
+            projectName: 'mcp-tools',
+            scanners: {
+              technicalDebt: { enabled: true },
+              security: { enabled: true },
+              performance: { enabled: true },
+              complexity: { enabled: true }
+            }
+          });
+          
+          // Define quality gates
+          const qualityGates = [
+            {
+              id: 'basic-quality',
+              name: 'Basic Quality Requirements',
+              enabled: true,
+              rules: [
+                {
+                  metricType: 'technical_debt',
+                  metricName: 'overall_quality_score',
+                  operator: '>=',
+                  threshold: 70,
+                  severity: 'high',
+                  blockMerge: true
+                },
+                {
+                  metricType: 'security',
+                  metricName: 'vulnerability_count',
+                  operator: '<=',
+                  threshold: 5,
+                  severity: 'critical',
+                  blockMerge: true
+                },
+                {
+                  metricType: 'performance',
+                  metricName: 'budget_compliance_rate',
+                  operator: '>=',
+                  threshold: 90,
+                  severity: 'medium',
+                  blockMerge: false
+                }
+              ]
+            }
+          ];
+          
+          async function run() {
+            const gateResults = await service.checkQualityGates(qualityGates);
+            
+            console.log('🚪 Quality Gates Results:');
+            console.log(\`  Overall: \${gateResults.passed ? '✅ PASSED' : '❌ FAILED'}\`);
+            
+            for (const result of gateResults.results) {
+              const status = result.passed ? '✅' : '❌';
+              console.log(\`  \${status} \${result.gateName} - \${result.ruleName}: \${result.actualValue} \${result.operator === '>=' ? '≥' : result.operator} \${result.threshold}\`);
+            }
+            
+            if (!gateResults.passed) {
+              console.error('❌ Quality gates failed - PR cannot be merged');
+              process.exit(1);
+            }
+            
+            console.log('✅ All quality gates passed');
+            service.close();
+          }
+          
+          run().catch(error => {
+            console.error('Quality gates check failed:', error);
+            process.exit(1);
+          });
+        "
+    
+    - name: Update PR Status
+      if: always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const status = '${{ job.status }}' === 'success' ? 'success' : 'failure';
+          const description = status === 'success' 
+            ? 'All quality gates passed' 
+            : 'Quality gates failed - check reports';
+          
+          github.rest.repos.createCommitStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            state: status,
+            target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            description: description,
+            context: 'quality-gates'
+          });

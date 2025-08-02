@@ -27,6 +27,7 @@ import memoryRoutes from './routes/memory.routes.js';
 import wikiRoutes from './routes/wiki.routes.js';
 import scraperRoutes from './routes/scraper.routes.js';
 import healthRoutes from './routes/health.routes.js';
+import qualityRoutes from './routes/quality.routes.js';
 import { createAnalyticsRoutes } from './routes/analytics.routes.js';
 
 // Import middleware
@@ -234,6 +235,7 @@ async function createApp() {
   app.use('/api/v1/memory', memoryRoutes);
   app.use('/api/v1/wiki', wikiRoutes);
   app.use('/api/v1/scraper', scraperRoutes);
+  app.use('/api/v1/quality', qualityRoutes);
   app.use('/api/v1/analytics', createAnalyticsRoutes(analyticsService));
   
   // Root endpoint

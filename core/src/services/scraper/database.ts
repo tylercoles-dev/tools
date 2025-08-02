@@ -3,86 +3,125 @@
  */
 
 import { Kysely, sql } from 'kysely';
-import Database from 'better-sqlite3';
-import { SqliteDialect } from 'kysely';
 import crypto from 'crypto';
+import { DatabaseConnectionManager } from '../../utils/database.js';
 import type { DatabaseConfig } from '../../utils/database.js';
 import type { ScrapedPage, ScrapingJob } from './types.js';
 
 // Database schema interfaces
+export interface ScraperPerformanceMetric {
+  id: string;
+  url: string;
+  domain: string;
+  processing_time_ms: number;
+  content_size_bytes: number | null;
+  status_code: number | null;
+  error_message: string | null;
+  timestamp: string;
+}
+
 export interface ScraperDatabase {
   scraped_pages: ScrapedPage;
   scraping_jobs: ScrapingJob;
+  scraper_performance: ScraperPerformanceMetric;
 }
 
 export class ScraperDatabaseManager {
-  private db: Kysely<ScraperDatabase>;
+  private dbManager: DatabaseConnectionManager<ScraperDatabase>;
 
   constructor(config: DatabaseConfig) {
-    if (config.type === 'sqlite') {
-      const database = new Database(config.filename || './scraper.db');
-      this.db = new Kysely<ScraperDatabase>({
-        dialect: new SqliteDialect({ database })
-      });
-    } else {
-      throw new Error('PostgreSQL support not yet implemented');
-    }
+    this.dbManager = new DatabaseConnectionManager<ScraperDatabase>(config);
   }
 
   async initialize(): Promise<void> {
+    await this.dbManager.initialize();
     await this.createTables();
   }
 
+  get db(): Kysely<ScraperDatabase> {
+    return this.dbManager.kysely;
+  }
+
+  async healthCheck() {
+    return await this.dbManager.healthCheck();
+  }
+
   private async createTables(): Promise<void> {
+    const isPostgreSQL = this.dbManager.getDialectType() === 'postgresql';
+    
     // Create scraped_pages table
-    await this.db.schema
+    let scrapedPagesTable = this.db.schema
       .createTable('scraped_pages')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
       .addColumn('url', 'text', (col) => col.notNull())
       .addColumn('title', 'text')
       .addColumn('content', 'text', (col) => col.notNull())
       .addColumn('content_hash', 'text', (col) => col.notNull())
-      .addColumn('metadata', 'text', (col) => col.notNull().defaultTo('{}')) // JSON
-      .addColumn('scraped_at', 'text', (col) => col.notNull())
+      .addColumn('metadata', isPostgreSQL ? 'jsonb' : 'text', (col) => col.notNull().defaultTo(sql`'{}'`))
+      .addColumn('scraped_at', isPostgreSQL ? 'timestamp' : 'text', (col) => col.notNull())
       .addColumn('status', 'text', (col) => col.notNull())
       .addColumn('error_message', 'text')
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute();
+      .addColumn('created_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
+        col.notNull().defaultTo(isPostgreSQL ? sql`CURRENT_TIMESTAMP` : sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
+        col.notNull().defaultTo(isPostgreSQL ? sql`CURRENT_TIMESTAMP` : sql`CURRENT_TIMESTAMP`));
+    
+    await scrapedPagesTable.execute();
 
     // Create scraping_jobs table
     await this.db.schema
       .createTable('scraping_jobs')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
       .addColumn('url', 'text', (col) => col.notNull())
       .addColumn('selector', 'text')
-      .addColumn('options', 'text', (col) => col.notNull().defaultTo('{}')) // JSON
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('pending'))
+      .addColumn('options', isPostgreSQL ? 'jsonb' : 'text', (col) => col.notNull().defaultTo(sql`'{}'`))
+      .addColumn('status', 'text', (col) => col.notNull().defaultTo(sql`'pending'`))
       .addColumn('priority', 'integer', (col) => col.notNull().defaultTo(5))
-      .addColumn('scheduled_at', 'text')
-      .addColumn('started_at', 'text')
-      .addColumn('completed_at', 'text')
+      .addColumn('scheduled_at', isPostgreSQL ? 'timestamp' : 'text')
+      .addColumn('started_at', isPostgreSQL ? 'timestamp' : 'text')
+      .addColumn('completed_at', isPostgreSQL ? 'timestamp' : 'text')
       .addColumn('error_message', 'text')
-      .addColumn('result_page_id', 'text')
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('result_page_id', isPostgreSQL ? 'uuid' : 'text')
+      .addColumn('created_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
+        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
+        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
       .execute();
 
-    // Add indexes for performance
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraped_pages_url ON scraped_pages(url)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraped_pages_content_hash ON scraped_pages(content_hash)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraped_pages_scraped_at ON scraped_pages(scraped_at)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraping_jobs_priority ON scraping_jobs(priority)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_scraping_jobs_scheduled_at ON scraping_jobs(scheduled_at)`.execute(this.db);
+    // Create scraper_performance table
+    await this.db.schema
+      .createTable('scraper_performance')
+      .ifNotExists()
+      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
+      .addColumn('url', 'text', (col) => col.notNull())
+      .addColumn('domain', 'text', (col) => col.notNull())
+      .addColumn('processing_time_ms', 'integer', (col) => col.notNull())
+      .addColumn('content_size_bytes', 'integer')
+      .addColumn('status_code', 'integer')
+      .addColumn('error_message', 'text')
+      .addColumn('timestamp', isPostgreSQL ? 'timestamp' : 'text', (col) => 
+        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .execute();
+
+    // Add indexes for performance - PostgreSQL uses CREATE INDEX IF NOT EXISTS, SQLite uses IF NOT EXISTS
+    const indexSql = isPostgreSQL ? 'CREATE INDEX IF NOT EXISTS' : 'CREATE INDEX IF NOT EXISTS';
+    
+    await sql`${sql.raw(indexSql)} idx_scraped_pages_url ON scraped_pages(url)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraped_pages_content_hash ON scraped_pages(content_hash)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraped_pages_scraped_at ON scraped_pages(scraped_at)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraping_jobs_status ON scraping_jobs(status)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraping_jobs_priority ON scraping_jobs(priority)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraping_jobs_scheduled_at ON scraping_jobs(scheduled_at)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraper_performance_domain ON scraper_performance(domain)`.execute(this.db);
+    await sql`${sql.raw(indexSql)} idx_scraper_performance_timestamp ON scraper_performance(timestamp)`.execute(this.db);
   }
 
   // Scraped Pages CRUD operations
   async createPage(page: Omit<ScrapedPage, 'id' | 'created_at' | 'updated_at'>): Promise<ScrapedPage> {
     const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
     const result = await this.db
       .insertInto('scraped_pages')
@@ -151,7 +190,7 @@ export class ScraperDatabaseManager {
   }
 
   async updatePage(id: string, updates: Partial<ScrapedPage>): Promise<ScrapedPage> {
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
     return await this.db
       .updateTable('scraped_pages')
@@ -171,7 +210,7 @@ export class ScraperDatabaseManager {
   // Scraping Jobs CRUD operations
   async createJob(job: Omit<ScrapingJob, 'id' | 'created_at' | 'updated_at'>): Promise<ScrapingJob> {
     const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
     const result = await this.db
       .insertInto('scraping_jobs')
@@ -304,7 +343,141 @@ export class ScraperDatabaseManager {
     return this.db;
   }
 
+  // Performance metrics CRUD operations
+  async createPerformanceMetric(metric: Omit<ScraperPerformanceMetric, 'id'>): Promise<ScraperPerformanceMetric> {
+    const id = crypto.randomUUID();
+    
+    const result = await this.db
+      .insertInto('scraper_performance')
+      .values({
+        id,
+        ...metric
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    
+    return result;
+  }
+
+  async getPerformanceMetrics(filters: {
+    domain?: string;
+    limit?: number;
+    offset?: number;
+    since?: string; // ISO timestamp
+  } = {}): Promise<ScraperPerformanceMetric[]> {
+    let query = this.db.selectFrom('scraper_performance').selectAll();
+    
+    if (filters.domain) {
+      query = query.where('domain', '=', filters.domain);
+    }
+    if (filters.since) {
+      query = query.where('timestamp', '>=', filters.since);
+    }
+    
+    query = query.orderBy('timestamp', 'desc');
+    
+    if (filters.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters.offset) {
+      query = query.offset(filters.offset);
+    }
+    
+    return await query.execute();
+  }
+
+  async getAverageProcessingTime(timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<number> {
+    const since = this.getTimeframeSince(timeframe);
+    
+    const result = await this.db
+      .selectFrom('scraper_performance')
+      .select(sql`AVG(processing_time_ms)`.as('avg_time'))
+      .where('timestamp', '>=', since)
+      .where('error_message', 'is', null) // Only successful operations
+      .executeTakeFirst();
+    
+    return Number(result?.avg_time || 5000); // Default fallback
+  }
+
+  async getDomainPerformanceStats(domain: string, timeframe: '1h' | '24h' | '7d' | '30d' = '24h'): Promise<{
+    avgProcessingTime: number;
+    successRate: number;
+    totalRequests: number;
+    avgContentSize: number;
+  }> {
+    const since = this.getTimeframeSince(timeframe);
+    
+    const stats = await this.db
+      .selectFrom('scraper_performance')
+      .select([
+        sql`AVG(processing_time_ms)`.as('avg_time'),
+        sql`COUNT(*)`.as('total'),
+        sql`COUNT(CASE WHEN error_message IS NULL THEN 1 END)`.as('successful'),
+        sql`AVG(content_size_bytes)`.as('avg_size')
+      ])
+      .where('domain', '=', domain)
+      .where('timestamp', '>=', since)
+      .executeTakeFirstOrThrow();
+    
+    return {
+      avgProcessingTime: Number(stats.avg_time || 0),
+      successRate: Number(stats.successful) / Number(stats.total) * 100,
+      totalRequests: Number(stats.total),
+      avgContentSize: Number(stats.avg_size || 0)
+    };
+  }
+
+  async getPerformanceTrends(timeframe: '7d' | '30d' = '7d'): Promise<Array<{
+    date: string;
+    avgProcessingTime: number;
+    requestCount: number;
+    successRate: number;
+  }>> {
+    const since = this.getTimeframeSince(timeframe);
+    
+    const results = await this.db
+      .selectFrom('scraper_performance')
+      .select([
+        sql`DATE(timestamp)`.as('date'),
+        sql`AVG(processing_time_ms)`.as('avg_time'),
+        sql`COUNT(*)`.as('count'),
+        sql`(COUNT(CASE WHEN error_message IS NULL THEN 1 END) * 100.0 / COUNT(*))`.as('success_rate')
+      ])
+      .where('timestamp', '>=', since)
+      .groupBy('date')
+      .orderBy('date', 'asc')
+      .execute();
+    
+    return results.map(r => ({
+      date: r.date as string,
+      avgProcessingTime: Number(r.avg_time),
+      requestCount: Number(r.count),
+      successRate: Number(r.success_rate)
+    }));
+  }
+
+  private getTimeframeSince(timeframe: '1h' | '24h' | '7d' | '30d'): string {
+    const now = new Date();
+    
+    switch (timeframe) {
+      case '1h':
+        now.setHours(now.getHours() - 1);
+        break;
+      case '24h':
+        now.setHours(now.getHours() - 24);
+        break;
+      case '7d':
+        now.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        now.setDate(now.getDate() - 30);
+        break;
+    }
+    
+    return now.toISOString();
+  }
+
   async close(): Promise<void> {
-    await this.db.destroy();
+    await this.dbManager.close();
   }
 }

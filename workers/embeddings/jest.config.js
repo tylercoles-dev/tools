@@ -11,6 +11,9 @@ export default {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@mcp-tools/core$': '<rootDir>/../../core/src/index.ts',
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(p-limit|p-retry|yocto-queue)/)'
+  ],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {

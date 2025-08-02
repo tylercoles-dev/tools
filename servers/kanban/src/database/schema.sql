@@ -172,6 +172,22 @@ CREATE TABLE IF NOT EXISTS time_entries (
 ALTER TABLE cards ADD COLUMN estimated_hours DECIMAL(10,2);
 ALTER TABLE cards ADD COLUMN actual_hours DECIMAL(10,2);
 
+-- Card Activities table (activity tracking and audit log)
+CREATE TABLE IF NOT EXISTS card_activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    board_id INTEGER NOT NULL,
+    action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('created', 'updated', 'moved', 'assigned', 'commented', 'tagged', 'archived', 'restored', 'linked', 'time_logged')),
+    user_id VARCHAR(255),
+    user_name VARCHAR(255),
+    details TEXT, -- JSON string containing action-specific details
+    old_values TEXT, -- JSON string of previous values (for updates)
+    new_values TEXT, -- JSON string of new values (for updates)
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+);
+
 -- Insert default data only if tables are empty
 INSERT OR IGNORE INTO boards (id, name, description, color) VALUES 
 (1, 'Sample Project', 'A sample kanban board to get started', '#6366f1'),

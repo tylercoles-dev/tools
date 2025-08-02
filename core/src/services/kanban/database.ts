@@ -3,9 +3,8 @@
  */
 
 import { Kysely, sql, Generated } from 'kysely';
-import Database from 'better-sqlite3';
-import { SqliteDialect } from 'kysely';
-// Remove unused imports - types are defined in table interfaces above
+import { DatabaseConnectionManager } from '../../utils/database.js';
+import type { DatabaseConfig } from '../../utils/database.js';
 
 // Database schema interfaces - separate types for inserts vs selects
 interface BoardTable {
@@ -58,6 +57,20 @@ interface CommentTable {
   updated_at: string;
 }
 
+interface CardActivityTable {
+  id: Generated<number>;
+  card_id: number;
+  board_id: number;
+  action_type: string;
+  user_id: string | null;
+  user_name: string | null;
+  details: string | null;
+  old_values: string | null;
+  new_values: string | null;
+  timestamp: string;
+  created_at: string;
+}
+
 export interface KanbanDatabase {
   boards: BoardTable;
   columns: ColumnTable;
@@ -69,34 +82,23 @@ export interface KanbanDatabase {
     created_at: string;
   };
   comments: CommentTable;
-}
-
-export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres';
-  filename?: string; // for SQLite
-  host?: string;
-  port?: number;
-  database?: string;
-  username?: string;
-  password?: string;
+  card_activities: CardActivityTable;
 }
 
 export class KanbanDatabase {
-  private db: Kysely<KanbanDatabase>;
+  private dbManager: DatabaseConnectionManager<KanbanDatabase>;
 
   constructor(config: DatabaseConfig) {
-    if (config.type === 'sqlite') {
-      const database = new Database(config.filename || './kanban.db');
-      this.db = new Kysely<KanbanDatabase>({
-        dialect: new SqliteDialect({ database })
-      });
-    } else {
-      throw new Error('PostgreSQL support not yet implemented');
-    }
+    this.dbManager = new DatabaseConnectionManager<KanbanDatabase>(config);
+  }
+
+  get db(): Kysely<KanbanDatabase> {
+    return this.dbManager.kysely;
   }
 
   async initialize(): Promise<void> {
     try {
+      await this.dbManager.initialize();
       console.log('🔄 Creating kanban database tables...');
       await this.createTables();
       console.log('✅ Kanban database tables created successfully');
@@ -189,6 +191,23 @@ export class KanbanDatabase {
       .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
       .execute();
 
+    // Create card_activities table
+    await this.db.schema
+      .createTable('card_activities')
+      .ifNotExists()
+      .addColumn('id', 'integer', (col) => col.primaryKey())
+      .addColumn('card_id', 'integer', (col) => col.notNull())
+      .addColumn('board_id', 'integer', (col) => col.notNull())
+      .addColumn('action_type', 'text', (col) => col.notNull())
+      .addColumn('user_id', 'text')
+      .addColumn('user_name', 'text')
+      .addColumn('details', 'text')
+      .addColumn('old_values', 'text')
+      .addColumn('new_values', 'text')
+      .addColumn('timestamp', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .execute();
+
     // Create indexes
     await this.db.schema
       .createIndex('idx_columns_board_id')
@@ -217,6 +236,27 @@ export class KanbanDatabase {
       .on('comments')
       .columns(['card_id'])
       .execute();
+    
+    await this.db.schema
+      .createIndex('idx_card_activities_card_id')
+      .ifNotExists()
+      .on('card_activities')
+      .columns(['card_id'])
+      .execute();
+    
+    await this.db.schema
+      .createIndex('idx_card_activities_board_id')
+      .ifNotExists()
+      .on('card_activities')
+      .columns(['board_id'])
+      .execute();
+    
+    await this.db.schema
+      .createIndex('idx_card_activities_timestamp')
+      .ifNotExists()
+      .on('card_activities')
+      .columns(['timestamp'])
+      .execute();
   }
 
   get kysely() {
@@ -224,6 +264,6 @@ export class KanbanDatabase {
   }
 
   async close(): Promise<void> {
-    await this.db.destroy();
+    await this.dbManager.close();
   }
 }

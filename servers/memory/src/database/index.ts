@@ -140,13 +140,31 @@ export class MemoryDatabase {
       .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
       .execute();
 
+    // Create usage tracking table
+    await this.db.schema
+      .createTable('usage_tracking')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('service', 'text', (col) => col.notNull())
+      .addColumn('operation', 'text', (col) => col.notNull())
+      .addColumn('tokens_used', 'integer')
+      .addColumn('cost_usd', 'real')
+      .addColumn('timestamp', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
+      .execute();
+
     // Add indexes for performance
     await sql`CREATE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)`.execute(this.db);
     await sql`CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_memories_created_by ON memories(created_by)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_memories_status ON memories(status)`.execute(this.db);
     await sql`CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id)`.execute(this.db);
     await sql`CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id)`.execute(this.db);
     await sql`CREATE INDEX IF NOT EXISTS idx_concepts_name ON concepts(name)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_concepts_type ON concepts(type)`.execute(this.db);
     await sql`CREATE INDEX IF NOT EXISTS idx_memory_concepts_memory ON memory_concepts(memory_id)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_memory_concepts_concept ON memory_concepts(concept_id)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_usage_tracking_timestamp ON usage_tracking(timestamp)`.execute(this.db);
+    await sql`CREATE INDEX IF NOT EXISTS idx_usage_tracking_service ON usage_tracking(service)`.execute(this.db);
   }
 
   // Repository methods
@@ -326,6 +344,111 @@ export class MemoryDatabase {
       totalRelationships: Number(relationshipCount.count),
       totalConcepts: Number(conceptCount.count)
     };
+  }
+
+  async getAverageImportance(): Promise<number> {
+    const result = await this.db
+      .selectFrom('memories')
+      .select(sql`avg(importance)`.as('average'))
+      .where('status', '=', 'active')
+      .executeTakeFirst();
+    
+    return Number(result?.average) || 1;
+  }
+
+  async getMostActiveUsers(limit: number = 10): Promise<Array<{ created_by: string; memory_count: number }>> {
+    const results = await this.db
+      .selectFrom('memories')
+      .select(['created_by', sql`count(*)`.as('memory_count')])
+      .where('created_by', 'is not', null)
+      .where('status', '=', 'active')
+      .groupBy('created_by')
+      .orderBy('memory_count', 'desc')
+      .limit(limit)
+      .execute();
+    
+    return results.map(r => ({
+      created_by: r.created_by!,
+      memory_count: Number(r.memory_count)
+    }));
+  }
+
+  async getTopProjects(limit: number = 10): Promise<Array<{ project_name: string; memory_count: number }>> {
+    const results = await this.db
+      .selectFrom('memories')
+      .select([
+        sql`JSON_EXTRACT(context, '$.projectName')`.as('project_name'),
+        sql`count(*)`.as('memory_count')
+      ])
+      .where('status', '=', 'active')
+      .where(sql`JSON_EXTRACT(context, '$.projectName')`, 'is not', null)
+      .groupBy(sql`JSON_EXTRACT(context, '$.projectName')`)
+      .orderBy('memory_count', 'desc')
+      .limit(limit)
+      .execute();
+    
+    return results.map(r => ({
+      project_name: r.project_name as string,
+      memory_count: Number(r.memory_count)
+    }));
+  }
+
+  async getConceptDistribution(): Promise<Record<string, number>> {
+    const results = await this.db
+      .selectFrom('concepts')
+      .select(['type', sql`count(*)`.as('count')])
+      .groupBy('type')
+      .execute();
+    
+    const distribution: Record<string, number> = {};
+    for (const result of results) {
+      distribution[result.type] = Number(result.count);
+    }
+    
+    return distribution;
+  }
+
+  async clearMemoryConcepts(memoryId: string): Promise<void> {
+    await this.db
+      .deleteFrom('memory_concepts')
+      .where('memory_id', '=', memoryId)
+      .execute();
+  }
+
+  async deleteRelationship(relationshipId: string): Promise<void> {
+    await this.db
+      .deleteFrom('relationships')
+      .where('id', '=', relationshipId)
+      .execute();
+  }
+
+  async createMergeAuditTrail(auditData: {
+    primary_memory_id: string;
+    merged_memory_ids: string;
+    strategy: string;
+    created_at: string;
+    created_by: string | null;
+  }): Promise<void> {
+    // Create merge_audit table if it doesn't exist
+    await this.db.schema
+      .createTable('memory_merges')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('primary_memory_id', 'text', (col) => col.notNull())
+      .addColumn('merged_memory_ids', 'text', (col) => col.notNull())
+      .addColumn('strategy', 'text', (col) => col.notNull())
+      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
+      .addColumn('created_by', 'text')
+      .execute();
+
+    // Insert audit record
+    await this.db
+      .insertInto('memory_merges')
+      .values({
+        id: crypto.randomUUID(),
+        ...auditData
+      })
+      .execute();
   }
 
   get kysely() {

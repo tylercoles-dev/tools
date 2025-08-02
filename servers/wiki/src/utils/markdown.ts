@@ -122,18 +122,13 @@ export class MarkdownProcessor {
   private extractLinks(content: string): string[] {
     const links: string[] = [];
     
-    // Extract markdown links [text](url)
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    // Extract wiki-style links [[page]] or [[page|display text]]
+    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
     let match;
 
-    while ((match = markdownLinkRegex.exec(content)) !== null) {
-      links.push(match[2]);
-    }
-
-    // Extract wiki-style links [[page]]
-    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
     while ((match = wikiLinkRegex.exec(content)) !== null) {
-      links.push(match[1]);
+      // Store the full link format for processing
+      links.push(`[[${match[1]}]]`);
     }
 
     return [...new Set(links)]; // Remove duplicates

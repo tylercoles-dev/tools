@@ -170,6 +170,40 @@ export function setupWebSocket(io: SocketIOServer, kanbanService: KanbanService,
       });
     });
     
+    // Wiki attachment events
+    socket.on('join:wiki_page', (pageId: string) => {
+      console.log(`User ${socket.user?.id} joined wiki page: ${pageId}`);
+      socket.join(`wiki:page:${pageId}`);
+    });
+    
+    socket.on('leave:wiki_page', (pageId: string) => {
+      console.log(`User ${socket.user?.id} left wiki page: ${pageId}`);
+      socket.leave(`wiki:page:${pageId}`);
+    });
+    
+    socket.on('attachment:upload_start', (data: { pageId: string; filename: string }) => {
+      socket.to(`wiki:page:${data.pageId}`).emit('attachment:upload_started', {
+        pageId: data.pageId,
+        filename: data.filename,
+        user: {
+          id: socket.user?.id,
+          name: socket.user?.name
+        },
+        timestamp: new Date().toISOString()
+      });
+    });
+    
+    socket.on('attachment:upload_progress', (data: { pageId: string; filename: string; progress: number }) => {
+      socket.to(`wiki:page:${data.pageId}`).emit('attachment:upload_progress', {
+        ...data,
+        user: {
+          id: socket.user?.id,
+          name: socket.user?.name
+        },
+        timestamp: new Date().toISOString()
+      });
+    });
+    
     // Disconnect handling
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.user?.id || 'anonymous'} (${socket.id})`);
@@ -208,4 +242,32 @@ export function broadcastToRoom(io: SocketIOServer, room: string, event: string,
 
 export function broadcastToUser(io: SocketIOServer, userId: string, event: string, data: any): void {
   io.to(`user:${userId}`).emit(event, data);
+}
+
+// Wiki attachment specific broadcast functions
+export function broadcastAttachmentUploaded(io: SocketIOServer, pageId: string, attachment: any, uploadedBy: string): void {
+  io.to(`wiki:page:${pageId}`).emit('attachment:uploaded', {
+    pageId,
+    attachment,
+    uploadedBy,
+    timestamp: new Date().toISOString()
+  });
+}
+
+export function broadcastAttachmentDeleted(io: SocketIOServer, pageId: string, attachmentId: string, deletedBy: string): void {
+  io.to(`wiki:page:${pageId}`).emit('attachment:deleted', {
+    pageId,
+    attachmentId,
+    deletedBy,
+    timestamp: new Date().toISOString()
+  });
+}
+
+export function broadcastAttachmentUpdated(io: SocketIOServer, pageId: string, attachment: any, updatedBy: string): void {
+  io.to(`wiki:page:${pageId}`).emit('attachment:updated', {
+    pageId,
+    attachment,
+    updatedBy,
+    timestamp: new Date().toISOString()
+  });
 }

@@ -206,4 +206,82 @@ router.delete('/cards/:id', [
   }
 }));
 
+// GET /api/kanban/boards/:id/activity - Get board activity feed
+router.get('/boards/:id/activity', [
+  param('id').notEmpty(),
+  query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const boardId = parseInt(req.params.id.replace('board_', '')) || parseInt(req.params.id);
+    const limit = req.query.limit || 50;
+    
+    const activity = await kanbanService.getBoardActivity(boardId, limit);
+    
+    res.success(activity);
+  } catch (error) {
+    return res.status(404).error('NOT_FOUND', 'Board not found');
+  }
+}));
+
+// GET /api/kanban/analytics/status-distribution - Get status distribution metrics
+router.get('/analytics/status-distribution', [
+  query('board_id').optional().isInt(),
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const stats = await kanbanService.getStats();
+    
+    res.success({
+      cards_by_status: stats.cards_by_status,
+      total_cards: stats.total_cards,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.error('INTERNAL_ERROR', 'Failed to get status distribution');
+  }
+}));
+
+// GET /api/kanban/analytics/user-productivity - Get user productivity metrics
+router.get('/analytics/user-productivity', [
+  query('user_id').optional().isString(),
+  query('timeframe').optional().isIn(['7d', '30d', '90d']),
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const userId = req.query.user_id;
+    const timeframe = req.query.timeframe || '30d';
+    
+    const stats = await kanbanService.getUserActivityStats(userId, timeframe);
+    
+    res.success(stats);
+  } catch (error) {
+    return res.error('INTERNAL_ERROR', 'Failed to get user productivity stats');
+  }
+}));
+
+// GET /api/kanban/analytics/overview - Get overall analytics overview
+router.get('/analytics/overview', [
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const stats = await kanbanService.getStats();
+    
+    res.success({
+      ...stats,
+      generated_at: new Date().toISOString()
+    });
+  } catch (error) {
+    return res.error('INTERNAL_ERROR', 'Failed to get analytics overview');
+  }
+}));
+
 export default router;

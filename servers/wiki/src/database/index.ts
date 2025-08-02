@@ -413,6 +413,111 @@ export class WikiDatabase {
     };
   }
 
+  // Page categories operations
+  async removePageCategories(pageId: number): Promise<void> {
+    await this.db
+      .deleteFrom('page_categories')
+      .where('page_id', '=', pageId)
+      .execute();
+  }
+
+  async addPageCategory(pageId: number, categoryId: number): Promise<void> {
+    await this.db
+      .insertInto('page_categories')
+      .values({ page_id: pageId, category_id: categoryId })
+      .onConflict((oc) => oc.doNothing())
+      .execute();
+  }
+
+  // Page tags operations
+  async removePageTags(pageId: number): Promise<void> {
+    await this.db
+      .deleteFrom('page_tags')
+      .where('page_id', '=', pageId)
+      .execute();
+  }
+
+  // Page history operations
+  async getPageHistory(pageId: number): Promise<any[]> {
+    return await this.db
+      .selectFrom('page_history')
+      .selectAll()
+      .where('page_id', '=', pageId)
+      .orderBy('created_at', 'desc')
+      .execute();
+  }
+
+  async createPageHistory(data: {
+    page_id: number;
+    title: string;
+    content: string;
+    summary?: string | null;
+    changed_by?: string | null;
+    change_reason?: string | null;
+  }): Promise<void> {
+    await this.db
+      .insertInto('page_history')
+      .values(data)
+      .execute();
+  }
+
+  // Page links operations
+  async getPageLinks(pageId: number): Promise<any[]> {
+    return await this.db
+      .selectFrom('page_links')
+      .innerJoin('pages as target_pages', 'target_pages.id', 'page_links.target_page_id')
+      .select([
+        'page_links.id',
+        'page_links.target_page_id',
+        'page_links.link_text',
+        'page_links.created_at',
+        'target_pages.title as target_title',
+        'target_pages.slug as target_slug',
+      ])
+      .where('page_links.source_page_id', '=', pageId)
+      .execute();
+  }
+
+  async getPageBacklinks(pageId: number): Promise<any[]> {
+    return await this.db
+      .selectFrom('page_links')
+      .innerJoin('pages as source_pages', 'source_pages.id', 'page_links.source_page_id')
+      .select([
+        'page_links.id',
+        'page_links.source_page_id',
+        'page_links.link_text',
+        'page_links.created_at',
+        'source_pages.title as source_title',
+        'source_pages.slug as source_slug',
+      ])
+      .where('page_links.target_page_id', '=', pageId)
+      .execute();
+  }
+
+  async removePageLinks(pageId: number): Promise<void> {
+    await this.db
+      .deleteFrom('page_links')
+      .where('source_page_id', '=', pageId)
+      .execute();
+  }
+
+  async createPageLink(data: {
+    source_page_id: number;
+    target_page_id: number;
+    link_text?: string | null;
+  }): Promise<void> {
+    await this.db
+      .insertInto('page_links')
+      .values(data)
+      .onConflict((oc) => oc.doNothing())
+      .execute();
+  }
+
+  // Direct access to Kysely instance for complex queries
+  get kysely(): Kysely<Database> {
+    return this.db;
+  }
+
   async close(): Promise<void> {
     if (this.db) {
       await this.db.destroy();

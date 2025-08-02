@@ -59,16 +59,19 @@ CREATE TABLE IF NOT EXISTS page_links (
     UNIQUE(source_page_id, target_page_id)
 );
 
--- Attachments table - for files associated with pages
-CREATE TABLE IF NOT EXISTS attachments (
-    id SERIAL PRIMARY KEY,
+-- Wiki attachments table - enhanced file attachment system
+CREATE TABLE IF NOT EXISTS wiki_attachments (
+    id TEXT PRIMARY KEY,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
-    filename VARCHAR(255) NOT NULL,
-    original_name VARCHAR(255) NOT NULL,
-    mime_type VARCHAR(100),
-    file_size INTEGER,
-    file_path TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    filename TEXT NOT NULL,         -- Storage filename (UUID-based)
+    original_name TEXT NOT NULL,    -- User's original filename
+    mime_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    storage_path TEXT NOT NULL,     -- Relative path in storage
+    thumbnail_path TEXT,            -- For image thumbnails
+    description TEXT,
+    uploaded_by TEXT,
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Page history table - version control for pages
@@ -103,7 +106,8 @@ CREATE INDEX IF NOT EXISTS idx_pages_search ON pages USING GIN(search_vector);
 CREATE INDEX IF NOT EXISTS idx_page_links_source ON page_links(source_page_id);
 CREATE INDEX IF NOT EXISTS idx_page_links_target ON page_links(target_page_id);
 CREATE INDEX IF NOT EXISTS idx_comments_page ON comments(page_id);
-CREATE INDEX IF NOT EXISTS idx_attachments_page ON attachments(page_id);
+CREATE INDEX IF NOT EXISTS idx_wiki_attachments_page_id ON wiki_attachments(page_id);
+CREATE INDEX IF NOT EXISTS idx_wiki_attachments_mime_type ON wiki_attachments(mime_type);
 CREATE INDEX IF NOT EXISTS idx_page_history_page ON page_history(page_id);
 
 -- Function to update search vector

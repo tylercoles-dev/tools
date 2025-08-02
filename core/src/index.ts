@@ -10,6 +10,7 @@ export * from './services/memory/index.js';
 export * from './services/memory-processing/index.js';
 export * from './services/wiki/index.js';
 export * from './services/scraper/index.js';
+export * from './services/quality/index.js';
 
 // Export shared types
 export * from './shared/types/index.js';

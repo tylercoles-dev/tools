@@ -217,3 +217,6 @@ If you see module resolution errors:
 - Confirm gateway WebSocket server is running
 - Check WebSocket connection in browser developer tools
 - Verify authentication tokens are valid
+
+## Tooling Notes
+- Use @docs\TECHNICAL_DEBT.md as a tracking file for work items
