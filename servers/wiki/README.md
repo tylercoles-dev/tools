@@ -23,8 +23,8 @@ A comprehensive wiki server implementation using the Model Context Protocol (MCP
 
 ### Database Support
 - **SQLite**: Default, with FTS5 full-text search
-- **PostgreSQL**: Full support with tsvector search (planned)
-- **MySQL**: Basic support (planned)
+- **PostgreSQL**: Full support with tsvector search ⚠️ (implementation pending)
+- **MySQL**: Basic support ⚠️ (implementation pending)
 
 ### MCP Integration
 - **Tools**: Complete CRUD operations for all entities

@@ -23,7 +23,7 @@ This system consists of:
 │   ├── wiki/               # Knowledge management MCP server
 │   └── memory/             # Memory graph MCP server
 ├── gateway/                # API gateway and WebSocket server
-├── web/                    # React/Next.js web client (planned)
+├── web/                    # Production-ready Next.js web client
 ├── workers/                # TypeScript background workers
 │   ├── embeddings/         # Embeddings processing worker
 │   └── markitdown/         # Document conversion worker

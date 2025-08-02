@@ -27,7 +27,7 @@ Complete guide for setting up the MCP Tools ecosystem for development, testing, 
 
 - **Docker** for containerized deployment
 - **NATS Server** for message-driven architecture
-- **Redis** for caching (future enhancement)
+- **Redis** for caching ⚠️ (implementation pending)
 
 ### Development Tools
 
@@ -112,6 +112,19 @@ npm run dev
 ```
 
 **Note**: The web client expects the API gateway to be running on port 3001 by default.
+
+### ✅ **Web Client Features Available**
+
+The web client is fully implemented and includes:
+- 🏠 Landing page with feature overview
+- 🔐 Authentication system (login/signup)
+- 📋 Kanban boards with drag-and-drop
+- 🧠 Memory management with search
+- 📖 Wiki pages with markdown editing
+- 📊 Analytics dashboard with real-time insights
+- 🔄 Real-time collaboration via WebSocket
+- 📱 Responsive design for mobile devices
+- ♿ Accessibility features and testing
 
 ### 4. Verify Setup
 
