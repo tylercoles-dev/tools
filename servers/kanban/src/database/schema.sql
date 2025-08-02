@@ -66,6 +66,112 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
 );
 
+-- Custom Fields table (board-level field definitions)
+CREATE TABLE IF NOT EXISTS custom_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    field_type VARCHAR(50) NOT NULL CHECK (field_type IN ('text', 'number', 'date', 'dropdown', 'checkbox', 'multi_select')),
+    is_required BOOLEAN DEFAULT FALSE,
+    position INTEGER NOT NULL DEFAULT 0,
+    options TEXT, -- JSON string for dropdown/multi_select options
+    validation_rules TEXT, -- JSON string for validation rules
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+    UNIQUE(board_id, name)
+);
+
+-- Card Custom Field Values table
+CREATE TABLE IF NOT EXISTS card_custom_field_values (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    custom_field_id INTEGER NOT NULL,
+    value TEXT, -- Stored as text, parsed based on field_type
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (custom_field_id) REFERENCES custom_fields(id) ON DELETE CASCADE,
+    UNIQUE(card_id, custom_field_id)
+);
+
+-- Milestones table
+CREATE TABLE IF NOT EXISTS milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    due_date DATE,
+    is_completed BOOLEAN DEFAULT FALSE,
+    completion_date DATE,
+    position INTEGER NOT NULL DEFAULT 0,
+    color VARCHAR(7) DEFAULT '#6366f1',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE
+);
+
+-- Card Milestones junction table
+CREATE TABLE IF NOT EXISTS card_milestones (
+    card_id INTEGER NOT NULL,
+    milestone_id INTEGER NOT NULL,
+    PRIMARY KEY (card_id, milestone_id),
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (milestone_id) REFERENCES milestones(id) ON DELETE CASCADE
+);
+
+-- Card Subtasks table (hierarchical todo lists)
+CREATE TABLE IF NOT EXISTS card_subtasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    parent_subtask_id INTEGER, -- For nested subtasks
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_completed BOOLEAN DEFAULT FALSE,
+    position INTEGER NOT NULL DEFAULT 0,
+    assigned_to VARCHAR(255),
+    due_date DATE,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_subtask_id) REFERENCES card_subtasks(id) ON DELETE CASCADE
+);
+
+-- Card Links table (relationships between cards)
+CREATE TABLE IF NOT EXISTS card_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_card_id INTEGER NOT NULL,
+    target_card_id INTEGER NOT NULL,
+    link_type VARCHAR(50) NOT NULL CHECK (link_type IN ('blocks', 'relates_to', 'duplicate', 'parent_child')),
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    FOREIGN KEY (source_card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_card_id) REFERENCES cards(id) ON DELETE CASCADE,
+    UNIQUE(source_card_id, target_card_id, link_type)
+);
+
+-- Time Entries table (time tracking)
+CREATE TABLE IF NOT EXISTS time_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER NOT NULL,
+    user_name VARCHAR(255),
+    description TEXT,
+    start_time TIMESTAMP,
+    end_time TIMESTAMP,
+    duration_minutes INTEGER, -- Calculated or manually entered
+    is_billable BOOLEAN DEFAULT FALSE,
+    hourly_rate DECIMAL(10,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
+);
+
+-- Add time estimate fields to cards table
+ALTER TABLE cards ADD COLUMN estimated_hours DECIMAL(10,2);
+ALTER TABLE cards ADD COLUMN actual_hours DECIMAL(10,2);
+
 -- Insert default data only if tables are empty
 INSERT OR IGNORE INTO boards (id, name, description, color) VALUES 
 (1, 'Sample Project', 'A sample kanban board to get started', '#6366f1'),

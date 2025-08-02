@@ -427,6 +427,305 @@ export class KanbanTestHelpers {
     return logs;
   }
 
+  // Enhanced features helpers
+  async createCustomField(config: CustomFieldConfig): Promise<void> {
+    await this.page.click('[data-testid="board-settings-btn"]');
+    await this.page.click('[data-testid="custom-fields-tab"]');
+    await this.page.click('[data-testid="add-custom-field"]');
+    
+    await this.page.fill('[data-testid="field-name-input"]', config.name);
+    await this.page.selectOption('[data-testid="field-type-select"]', config.type);
+    
+    if (config.options) {
+      await this.page.fill('[data-testid="field-options-input"]', config.options.join(','));
+    }
+    
+    if (config.required) {
+      await this.page.check('[data-testid="field-required-checkbox"]');
+    }
+    
+    await this.page.click('[data-testid="save-field-btn"]');
+    await this.page.click('[data-testid="close-settings-btn"]');
+  }
+
+  async setCustomFieldValue(cardTitle: string, fieldName: string, value: any): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-custom-fields"]');
+    
+    const fieldSlug = this.slugify(fieldName);
+    const fieldSelector = `[data-testid="custom-field-${fieldSlug}"]`;
+    
+    if (typeof value === 'string' || typeof value === 'number') {
+      const inputSelector = `${fieldSelector}-input, ${fieldSelector}-select`;
+      await this.page.fill(inputSelector, value.toString());
+    } else if (typeof value === 'boolean') {
+      const checkboxSelector = `${fieldSelector}-checkbox`;
+      if (value) {
+        await this.page.check(checkboxSelector);
+      } else {
+        await this.page.uncheck(checkboxSelector);
+      }
+    } else if (Array.isArray(value)) {
+      for (const option of value) {
+        await this.page.click(`${fieldSelector}-option-${this.slugify(option)}`);
+      }
+    }
+    
+    await this.page.click('[data-testid="save-custom-fields-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async createMilestone(config: MilestoneConfig): Promise<void> {
+    await this.page.click('[data-testid="board-settings-btn"]');
+    await this.page.click('[data-testid="milestones-tab"]');
+    await this.page.click('[data-testid="create-milestone-btn"]');
+    
+    await this.page.fill('[data-testid="milestone-title-input"]', config.title);
+    await this.page.fill('[data-testid="milestone-due-date-input"]', config.dueDate);
+    
+    if (config.description) {
+      await this.page.fill('[data-testid="milestone-description-input"]', config.description);
+    }
+    
+    if (config.startDate) {
+      await this.page.fill('[data-testid="milestone-start-date-input"]', config.startDate);
+    }
+    
+    await this.page.click('[data-testid="save-milestone-btn"]');
+    await this.page.click('[data-testid="close-settings-btn"]');
+  }
+
+  async assignCardToMilestone(cardTitle: string, milestoneTitle: string): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-overview"]');
+    await this.page.selectOption('[data-testid="milestone-select"]', milestoneTitle);
+    await this.page.click('[data-testid="save-card-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async createSubtask(cardTitle: string, config: SubtaskConfig): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-subtasks"]');
+    
+    let addButtonSelector = '[data-testid="add-subtask-btn"]';
+    if (config.parentPath && config.parentPath.length > 0) {
+      const parentSelector = `[data-testid="subtask-${this.slugify(config.parentPath[config.parentPath.length - 1])}"]`;
+      addButtonSelector = `${parentSelector} [data-testid="add-child-subtask-btn"]`;
+    }
+    
+    await this.page.click(addButtonSelector);
+    await this.page.fill('[data-testid="subtask-title-input"]', config.title);
+    
+    if (config.description) {
+      await this.page.fill('[data-testid="subtask-description-input"]', config.description);
+    }
+    
+    if (config.priority) {
+      await this.page.selectOption('[data-testid="subtask-priority-select"]', config.priority);
+    }
+    
+    if (config.estimatedHours) {
+      await this.page.fill('[data-testid="subtask-estimated-hours-input"]', config.estimatedHours.toString());
+    }
+    
+    await this.page.click('[data-testid="save-subtask-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async completeSubtask(cardTitle: string, subtaskTitle: string): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-subtasks"]');
+    
+    const subtaskSelector = `[data-testid="subtask-${this.slugify(subtaskTitle)}"]`;
+    await this.page.click(`${subtaskSelector} [data-testid="complete-checkbox"]`);
+    
+    await expect(this.page.locator(subtaskSelector)).toHaveClass(/completed/);
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async setTimeEstimate(cardTitle: string, hours: number): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-time-tracking"]');
+    await this.page.fill('[data-testid="time-estimate-input"]', hours.toString());
+    await this.page.click('[data-testid="save-estimate-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async logTime(cardTitle: string, config: TimeEntryConfig): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-time-tracking"]');
+    await this.page.click('[data-testid="add-time-entry-btn"]');
+    
+    await this.page.fill('[data-testid="manual-time-hours"]', config.hours.toString());
+    await this.page.fill('[data-testid="manual-time-description"]', config.description);
+    
+    if (config.date) {
+      await this.page.fill('[data-testid="manual-time-date"]', config.date);
+    }
+    
+    if (config.subtaskId) {
+      await this.page.selectOption('[data-testid="time-subtask-select"]', config.subtaskId);
+    }
+    
+    await this.page.click('[data-testid="save-time-entry-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async startTimeTracking(cardTitle: string, description?: string): Promise<void> {
+    await this.openCardDetailModal(cardTitle);
+    await this.page.click('[data-testid="tab-time-tracking"]');
+    await this.page.click('[data-testid="start-timer-btn"]');
+    
+    if (description) {
+      await this.page.fill('[data-testid="time-description-input"]', description);
+    }
+    
+    await this.page.click('[data-testid="confirm-start-timer"]');
+    await expect(this.page.locator('[data-testid="active-timer"]')).toBeVisible();
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async stopTimeTracking(): Promise<void> {
+    await this.page.click('[data-testid="stop-timer-btn"]');
+    await expect(this.page.locator('[data-testid="active-timer"]')).not.toBeVisible();
+  }
+
+  async createCardLink(config: CardLinkConfig): Promise<void> {
+    await this.openCardDetailModal(config.sourceCard);
+    await this.page.click('[data-testid="tab-links"]');
+    await this.page.click('[data-testid="add-link-btn"]');
+    
+    await this.page.selectOption('[data-testid="link-type-select"]', config.linkType);
+    await this.page.selectOption('[data-testid="target-card-select"]', config.targetCard);
+    
+    if (config.description) {
+      await this.page.fill('[data-testid="link-description-input"]', config.description);
+    }
+    
+    await this.page.click('[data-testid="save-link-btn"]');
+    await this.page.click('[data-testid="close-modal-btn"]');
+  }
+
+  async openCardDetailModal(cardTitle: string): Promise<void> {
+    const cardSelector = `[data-testid="card"]:has-text("${cardTitle}")`;
+    await this.page.click(cardSelector);
+    await expect(this.page.locator('[data-testid="card-detail-modal"]')).toBeVisible();
+  }
+
+  async moveCardToColumn(cardTitle: string, columnId: string): Promise<void> {
+    const cardSelector = `[data-testid="card"]:has-text("${cardTitle}")`;
+    const columnSelector = `[data-testid="column-${columnId}"]`;
+    
+    await this.page.dragAndDrop(cardSelector, columnSelector);
+    await expect(this.page.locator(`${columnSelector} ${cardSelector}`)).toBeVisible();
+  }
+
+  async setupAnalyticsTestData(): Promise<void> {
+    // Create various cards with different properties for analytics
+    const analyticsCards = [
+      { title: 'Completed Feature A', column: 'done', estimate: 8, actual: 6 },
+      { title: 'In Progress Feature B', column: 'in-progress', estimate: 12, actual: 4 },
+      { title: 'Planned Feature C', column: 'to-do', estimate: 16, actual: 0 },
+      { title: 'Testing Feature D', column: 'testing', estimate: 4, actual: 5 },
+      { title: 'Completed Bug Fix E', column: 'done', estimate: 2, actual: 3 }
+    ];
+
+    // Create custom fields for analytics
+    await this.createCustomField({
+      name: 'Priority',
+      type: 'dropdown',
+      options: ['Low', 'Medium', 'High', 'Critical']
+    });
+
+    await this.createCustomField({
+      name: 'Component',
+      type: 'dropdown',
+      options: ['Frontend', 'Backend', 'Database', 'API']
+    });
+
+    // Create milestones
+    const futureDate = new Date();
+    futureDate.setMonth(futureDate.getMonth() + 3);
+    await this.createMilestone({
+      title: 'Q4 Release',
+      description: 'Major quarterly release',
+      dueDate: futureDate.toISOString().split('T')[0]
+    });
+
+    // Create and configure cards
+    for (const cardData of analyticsCards) {
+      await this.createCard(cardData.column, { title: cardData.title });
+      await this.setTimeEstimate(cardData.title, cardData.estimate);
+      
+      if (cardData.actual > 0) {
+        await this.logTime(cardData.title, {
+          hours: cardData.actual,
+          description: 'Development work'
+        });
+      }
+
+      // Set random custom field values
+      const priorities = ['Low', 'Medium', 'High', 'Critical'];
+      const components = ['Frontend', 'Backend', 'Database', 'API'];
+      
+      await this.setCustomFieldValue(cardData.title, 'Priority', priorities[Math.floor(Math.random() * priorities.length)]);
+      await this.setCustomFieldValue(cardData.title, 'Component', components[Math.floor(Math.random() * components.length)]);
+    }
+  }
+
+  async createLargeDataset(config: {
+    cards: number;
+    customFields: number;
+    milestones: number;
+    subtasksPerCard: number;
+  }): Promise<void> {
+    // Create custom fields
+    for (let i = 1; i <= config.customFields; i++) {
+      await this.createCustomField({
+        name: `Field ${i}`,
+        type: i % 2 === 0 ? 'dropdown' : 'text',
+        options: i % 2 === 0 ? [`Option A`, `Option B`, `Option C`] : undefined
+      });
+    }
+
+    // Create milestones
+    for (let i = 1; i <= config.milestones; i++) {
+      const dueDate = new Date();
+      dueDate.setMonth(dueDate.getMonth() + i);
+      await this.createMilestone({
+        title: `Milestone ${i}`,
+        dueDate: dueDate.toISOString().split('T')[0]
+      });
+    }
+
+    // Create cards in batches
+    const batchSize = 10;
+    for (let batch = 0; batch < Math.ceil(config.cards / batchSize); batch++) {
+      const startIndex = batch * batchSize;
+      const endIndex = Math.min(startIndex + batchSize, config.cards);
+      
+      for (let i = startIndex; i < endIndex; i++) {
+        const cardTitle = `Test Card ${i + 1}`;
+        await this.createCard('to-do', { title: cardTitle });
+        
+        // Add subtasks
+        for (let s = 1; s <= config.subtasksPerCard; s++) {
+          await this.createSubtask(cardTitle, {
+            title: `Subtask ${s}`,
+            priority: ['low', 'medium', 'high'][s % 3] as any
+          });
+        }
+      }
+    }
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
   // Cleanup helpers
   async cleanup(): Promise<void> {
     // Remove any test data created during test
@@ -531,3 +830,41 @@ export const validateCardData = (actual: any, expected: Partial<TestKanbanCard>)
   }
   return true;
 };
+
+// Enhanced features helpers
+export interface CustomFieldConfig {
+  name: string;
+  type: 'text' | 'number' | 'date' | 'dropdown' | 'checkbox' | 'multi-select';
+  options?: string[];
+  required?: boolean;
+  validation?: any;
+}
+
+export interface MilestoneConfig {
+  title: string;
+  description?: string;
+  dueDate: string;
+  startDate?: string;
+}
+
+export interface SubtaskConfig {
+  title: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  estimatedHours?: number;
+  parentPath?: string[];
+}
+
+export interface TimeEntryConfig {
+  hours: number;
+  description: string;
+  date?: string;
+  subtaskId?: string;
+}
+
+export interface CardLinkConfig {
+  sourceCard: string;
+  targetCard: string;
+  linkType: 'blocks' | 'relates_to' | 'duplicate' | 'parent_child';
+  description?: string;
+}

@@ -207,6 +207,184 @@ export class ApiClient {
     return response.data;
   }
 
+  // Enhanced Kanban endpoints for new features
+
+  // Custom Fields
+  async createCustomField(boardId: string, field: any): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/boards/${boardId}/custom-fields`, field);
+    return response.data;
+  }
+
+  async updateCustomField(fieldId: string, updates: any): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/custom-fields/${fieldId}`, updates);
+    return response.data;
+  }
+
+  async deleteCustomField(fieldId: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/api/kanban/custom-fields/${fieldId}`);
+    return response.data;
+  }
+
+  async setCustomFieldValue(cardId: string, fieldId: string, value: any): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/cards/${cardId}/custom-fields/${fieldId}`, { value });
+    return response.data;
+  }
+
+  async getCustomFieldValues(cardId: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/cards/${cardId}/custom-fields`);
+    return response.data;
+  }
+
+  // Milestones
+  async createMilestone(boardId: string, milestone: any): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/boards/${boardId}/milestones`, milestone);
+    return response.data;
+  }
+
+  async updateMilestone(milestoneId: string, updates: any): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/milestones/${milestoneId}`, updates);
+    return response.data;
+  }
+
+  async deleteMilestone(milestoneId: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/api/kanban/milestones/${milestoneId}`);
+    return response.data;
+  }
+
+  async completeMilestone(milestoneId: string, isCompleted: boolean): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/milestones/${milestoneId}/complete`, { 
+      is_completed: isCompleted,
+      completion_date: isCompleted ? new Date().toISOString().split('T')[0] : undefined
+    });
+    return response.data;
+  }
+
+  async assignCardToMilestone(cardId: string, milestoneId: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/cards/${cardId}/milestone`, { milestone_id: milestoneId });
+    return response.data;
+  }
+
+  async getBoardMilestones(boardId: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/boards/${boardId}/milestones`);
+    return response.data;
+  }
+
+  // Subtasks
+  async createSubtask(cardId: string, subtask: any): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/cards/${cardId}/subtasks`, subtask);
+    return response.data;
+  }
+
+  async updateSubtask(subtaskId: string, updates: any): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/subtasks/${subtaskId}`, updates);
+    return response.data;
+  }
+
+  async deleteSubtask(subtaskId: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/api/kanban/subtasks/${subtaskId}`);
+    return response.data;
+  }
+
+  async completeSubtask(subtaskId: string, isCompleted: boolean): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/subtasks/${subtaskId}/complete`, { is_completed: isCompleted });
+    return response.data;
+  }
+
+  async getCardSubtasks(cardId: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/cards/${cardId}/subtasks`);
+    return response.data;
+  }
+
+  // Card Links
+  async createCardLink(sourceCardId: string, targetCardId: string, linkType: string, description?: string): Promise<ApiResponse> {
+    const response = await this.client.post('/api/kanban/card-links', {
+      source_card_id: sourceCardId,
+      target_card_id: targetCardId,
+      link_type: linkType,
+      description
+    });
+    return response.data;
+  }
+
+  async updateCardLink(linkId: string, updates: any): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/card-links/${linkId}`, updates);
+    return response.data;
+  }
+
+  async deleteCardLink(linkId: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/api/kanban/card-links/${linkId}`);
+    return response.data;
+  }
+
+  async getCardLinks(cardId: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/cards/${cardId}/links`);
+    return response.data;
+  }
+
+  // Time Tracking
+  async createTimeEntry(cardId: string, timeEntry: any): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/cards/${cardId}/time-entries`, timeEntry);
+    return response.data;
+  }
+
+  async updateTimeEntry(entryId: string, updates: any): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/time-entries/${entryId}`, updates);
+    return response.data;
+  }
+
+  async deleteTimeEntry(entryId: string): Promise<ApiResponse> {
+    const response = await this.client.delete(`/api/kanban/time-entries/${entryId}`);
+    return response.data;
+  }
+
+  async startTimeTracking(cardId: string, description?: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/cards/${cardId}/time-tracking/start`, { 
+      description,
+      user_name: 'current_user' // This should come from auth context
+    });
+    return response.data;
+  }
+
+  async stopTimeTracking(entryId: string): Promise<ApiResponse> {
+    const response = await this.client.post(`/api/kanban/time-entries/${entryId}/stop`);
+    return response.data;
+  }
+
+  async updateCardTimeEstimate(cardId: string, estimatedHours: number): Promise<ApiResponse> {
+    const response = await this.client.patch(`/api/kanban/cards/${cardId}/time-estimate`, { 
+      estimated_hours: estimatedHours 
+    });
+    return response.data;
+  }
+
+  async getCardTimeEntries(cardId: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/cards/${cardId}/time-entries`);
+    return response.data;
+  }
+
+  async getActiveTimeTracking(): Promise<ApiResponse> {
+    const response = await this.client.get('/api/kanban/time-tracking/active');
+    return response.data;
+  }
+
+  async getTimeTrackingReport(boardId?: string, dateRange?: { from: string; to: string }): Promise<ApiResponse> {
+    const params = { board_id: boardId, ...dateRange };
+    const response = await this.client.get('/api/kanban/time-tracking/report', { params });
+    return response.data;
+  }
+
+  // Analytics and Stats
+  async getKanbanStats(boardId?: string): Promise<ApiResponse> {
+    const response = await this.client.get(`/api/kanban/stats${boardId ? `?board_id=${boardId}` : ''}`);
+    return response.data;
+  }
+
+  async searchCards(query: string, boardId?: string, filters?: any): Promise<ApiResponse> {
+    const params = { query, board_id: boardId, ...filters };
+    const response = await this.client.get('/api/kanban/cards/search', { params });
+    return response.data;
+  }
+
   // Memory endpoints
   async getMemories(params?: any): Promise<ApiResponse> {
     const response = await this.client.get('/api/memory/memories', { params });

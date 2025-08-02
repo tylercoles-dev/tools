@@ -59,6 +59,92 @@ export interface Comment {
   updated_at: string;
 }
 
+// Custom Fields
+export const CustomFieldTypeSchema = z.enum(['text', 'number', 'date', 'dropdown', 'checkbox', 'multi_select']);
+export type CustomFieldType = z.infer<typeof CustomFieldTypeSchema>;
+
+export interface CustomField {
+  id: number;
+  board_id: number;
+  name: string;
+  field_type: CustomFieldType;
+  is_required: boolean;
+  position: number;
+  options: string | null; // JSON string for dropdown/multi_select options
+  validation_rules: string | null; // JSON string for validation rules
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomFieldValue {
+  id: number;
+  card_id: number;
+  custom_field_id: number;
+  value: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Milestones
+export interface Milestone {
+  id: number;
+  board_id: number;
+  name: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: boolean;
+  completion_date: string | null;
+  position: number;
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Subtasks
+export interface Subtask {
+  id: number;
+  card_id: number;
+  parent_subtask_id: number | null;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  position: number;
+  assigned_to: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Card Links
+export const CardLinkTypeSchema = z.enum(['blocks', 'relates_to', 'duplicate', 'parent_child']);
+export type CardLinkType = z.infer<typeof CardLinkTypeSchema>;
+
+export interface CardLink {
+  id: number;
+  source_card_id: number;
+  target_card_id: number;
+  link_type: CardLinkType;
+  description: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+// Time Tracking
+export interface TimeEntry {
+  id: number;
+  card_id: number;
+  user_name: string | null;
+  description: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_minutes: number | null;
+  is_billable: boolean;
+  hourly_rate: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Input schemas
 export const CreateBoardSchema = z.object({
   name: z.string().min(1).max(255),
@@ -117,6 +203,107 @@ export const SearchCardsSchema = z.object({
   assigned_to: z.string().max(255).optional(),
 });
 
+// Custom Fields schemas
+export const CreateCustomFieldSchema = z.object({
+  board_id: z.number().int().positive(),
+  name: z.string().min(1).max(255),
+  field_type: CustomFieldTypeSchema,
+  is_required: z.boolean().default(false),
+  position: z.number().int().min(0).default(0),
+  options: z.string().optional(), // JSON string for dropdown/multi_select options
+  validation_rules: z.string().optional(), // JSON string for validation rules
+});
+
+export const UpdateCustomFieldSchema = CreateCustomFieldSchema.partial().omit({ board_id: true });
+
+export const SetCustomFieldValueSchema = z.object({
+  card_id: z.number().int().positive(),
+  custom_field_id: z.number().int().positive(),
+  value: z.string().optional(),
+});
+
+// Milestones schemas
+export const CreateMilestoneSchema = z.object({
+  board_id: z.number().int().positive(),
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  position: z.number().int().min(0).default(0),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
+});
+
+export const UpdateMilestoneSchema = CreateMilestoneSchema.partial().omit({ board_id: true });
+
+export const CompleteMilestoneSchema = z.object({
+  milestone_id: z.number().int().positive(),
+  is_completed: z.boolean(),
+  completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+export const AssignCardToMilestoneSchema = z.object({
+  card_id: z.number().int().positive(),
+  milestone_id: z.number().int().positive(),
+});
+
+// Subtasks schemas
+export const CreateSubtaskSchema = z.object({
+  card_id: z.number().int().positive(),
+  parent_subtask_id: z.number().int().positive().optional(),
+  title: z.string().min(1).max(255),
+  description: z.string().optional(),
+  position: z.number().int().min(0).default(0),
+  assigned_to: z.string().max(255).optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+export const UpdateSubtaskSchema = CreateSubtaskSchema.partial().omit({ card_id: true });
+
+export const CompleteSubtaskSchema = z.object({
+  subtask_id: z.number().int().positive(),
+  is_completed: z.boolean(),
+});
+
+// Card Links schemas
+export const CreateCardLinkSchema = z.object({
+  source_card_id: z.number().int().positive(),
+  target_card_id: z.number().int().positive(),
+  link_type: CardLinkTypeSchema,
+  description: z.string().optional(),
+  created_by: z.string().max(255).optional(),
+});
+
+export const UpdateCardLinkSchema = CreateCardLinkSchema.partial().omit({ source_card_id: true, target_card_id: true });
+
+// Time Tracking schemas
+export const CreateTimeEntrySchema = z.object({
+  card_id: z.number().int().positive(),
+  user_name: z.string().max(255).optional(),
+  description: z.string().optional(),
+  start_time: z.string().datetime().optional(),
+  end_time: z.string().datetime().optional(),
+  duration_minutes: z.number().int().min(0).optional(),
+  is_billable: z.boolean().default(false),
+  hourly_rate: z.number().min(0).optional(),
+});
+
+export const UpdateTimeEntrySchema = CreateTimeEntrySchema.partial().omit({ card_id: true });
+
+export const StartTimeTrackingSchema = z.object({
+  card_id: z.number().int().positive(),
+  user_name: z.string().max(255).optional(),
+  description: z.string().optional(),
+});
+
+export const StopTimeTrackingSchema = z.object({
+  time_entry_id: z.number().int().positive(),
+  end_time: z.string().datetime().optional(),
+});
+
+export const UpdateCardTimeEstimateSchema = z.object({
+  card_id: z.number().int().positive(),
+  estimated_hours: z.number().min(0).optional(),
+});
+
 // Input types
 export type CreateBoardInput = z.infer<typeof CreateBoardSchema>;
 export type UpdateBoardInput = z.infer<typeof UpdateBoardSchema>;
@@ -129,6 +316,29 @@ export type CreateTagInput = z.infer<typeof CreateTagSchema>;
 export type CreateCommentInput = z.infer<typeof CreateCommentSchema>;
 export type SearchCardsInput = z.infer<typeof SearchCardsSchema>;
 
+// New feature input types
+export type CreateCustomFieldInput = z.infer<typeof CreateCustomFieldSchema>;
+export type UpdateCustomFieldInput = z.infer<typeof UpdateCustomFieldSchema>;
+export type SetCustomFieldValueInput = z.infer<typeof SetCustomFieldValueSchema>;
+
+export type CreateMilestoneInput = z.infer<typeof CreateMilestoneSchema>;
+export type UpdateMilestoneInput = z.infer<typeof UpdateMilestoneSchema>;
+export type CompleteMilestoneInput = z.infer<typeof CompleteMilestoneSchema>;
+export type AssignCardToMilestoneInput = z.infer<typeof AssignCardToMilestoneSchema>;
+
+export type CreateSubtaskInput = z.infer<typeof CreateSubtaskSchema>;
+export type UpdateSubtaskInput = z.infer<typeof UpdateSubtaskSchema>;
+export type CompleteSubtaskInput = z.infer<typeof CompleteSubtaskSchema>;
+
+export type CreateCardLinkInput = z.infer<typeof CreateCardLinkSchema>;
+export type UpdateCardLinkInput = z.infer<typeof UpdateCardLinkSchema>;
+
+export type CreateTimeEntryInput = z.infer<typeof CreateTimeEntrySchema>;
+export type UpdateTimeEntryInput = z.infer<typeof UpdateTimeEntrySchema>;
+export type StartTimeTrackingInput = z.infer<typeof StartTimeTrackingSchema>;
+export type StopTimeTrackingInput = z.infer<typeof StopTimeTrackingSchema>;
+export type UpdateCardTimeEstimateInput = z.infer<typeof UpdateCardTimeEstimateSchema>;
+
 // Response types
 export interface BoardWithColumns extends Board {
   columns: ColumnWithCards[];
@@ -140,6 +350,42 @@ export interface ColumnWithCards extends Column {
 
 export interface CardWithTags extends Card {
   tags: Tag[];
+  custom_field_values?: CustomFieldValueWithField[];
+  milestones?: Milestone[];
+  subtasks?: SubtaskWithChildren[];
+  time_entries?: TimeEntry[];
+  estimated_hours?: number;
+  actual_hours?: number;
+}
+
+export interface CustomFieldWithValues extends CustomField {
+  values?: CustomFieldValue[];
+}
+
+export interface CustomFieldValueWithField extends CustomFieldValue {
+  custom_field?: CustomField;
+}
+
+export interface MilestoneWithCards extends Milestone {
+  cards?: Card[];
+  progress?: {
+    total_cards: number;
+    completed_cards: number;
+    completion_percentage: number;
+  };
+}
+
+export interface SubtaskWithChildren extends Subtask {
+  children?: SubtaskWithChildren[];
+}
+
+export interface CardLinkWithCards extends CardLink {
+  source_card?: Card;
+  target_card?: Card;
+}
+
+export interface TimeEntryWithCard extends TimeEntry {
+  card?: Card;
 }
 
 export interface KanbanStats {

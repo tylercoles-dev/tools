@@ -4,6 +4,14 @@ import { z } from 'zod';
 export const PrioritySchema = z.enum(['low', 'medium', 'high', 'urgent']);
 export type Priority = z.infer<typeof PrioritySchema>;
 
+// Custom Fields
+export const CustomFieldTypeSchema = z.enum(['text', 'number', 'date', 'dropdown', 'checkbox', 'multi_select']);
+export type CustomFieldType = z.infer<typeof CustomFieldTypeSchema>;
+
+// Card Links
+export const CardLinkTypeSchema = z.enum(['blocks', 'relates_to', 'duplicate', 'parent_child']);
+export type CardLinkType = z.infer<typeof CardLinkTypeSchema>;
+
 // Board schemas
 export const CreateBoardSchema = z.object({
   name: z.string().min(1).max(255),
@@ -111,6 +119,147 @@ export const SearchCardsSchema = z.object({
   board_id: z.number().int().positive().optional(),
   priority: PrioritySchema.optional(),
   assigned_to: z.string().max(255).optional(),
+});
+
+// Custom Fields schemas
+export const CreateCustomFieldSchema = z.object({
+  board_id: z.number().int().positive(),
+  name: z.string().min(1).max(255),
+  field_type: CustomFieldTypeSchema,
+  is_required: z.boolean().default(false),
+  position: z.number().int().min(0).default(0),
+  options: z.string().optional(),
+  validation_rules: z.string().optional(),
+});
+
+export const UpdateCustomFieldSchema = CreateCustomFieldSchema.partial().omit({ board_id: true });
+
+export const CustomFieldIdSchema = z.object({
+  custom_field_id: z.number().int().positive(),
+});
+
+export const UpdateCustomFieldWithIdSchema = z.object({
+  custom_field_id: z.number().int().positive(),
+}).merge(UpdateCustomFieldSchema);
+
+export const SetCustomFieldValueSchema = z.object({
+  card_id: z.number().int().positive(),
+  custom_field_id: z.number().int().positive(),
+  value: z.string().optional(),
+});
+
+// Milestones schemas
+export const CreateMilestoneSchema = z.object({
+  board_id: z.number().int().positive(),
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  position: z.number().int().min(0).default(0),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
+});
+
+export const UpdateMilestoneSchema = CreateMilestoneSchema.partial().omit({ board_id: true });
+
+export const MilestoneIdSchema = z.object({
+  milestone_id: z.number().int().positive(),
+});
+
+export const UpdateMilestoneWithIdSchema = z.object({
+  milestone_id: z.number().int().positive(),
+}).merge(UpdateMilestoneSchema);
+
+export const CompleteMilestoneSchema = z.object({
+  milestone_id: z.number().int().positive(),
+  is_completed: z.boolean(),
+  completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+export const AssignCardToMilestoneSchema = z.object({
+  card_id: z.number().int().positive(),
+  milestone_id: z.number().int().positive(),
+});
+
+// Subtasks schemas
+export const CreateSubtaskSchema = z.object({
+  card_id: z.number().int().positive(),
+  parent_subtask_id: z.number().int().positive().optional(),
+  title: z.string().min(1).max(255),
+  description: z.string().optional(),
+  position: z.number().int().min(0).default(0),
+  assigned_to: z.string().max(255).optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+export const UpdateSubtaskSchema = CreateSubtaskSchema.partial().omit({ card_id: true });
+
+export const SubtaskIdSchema = z.object({
+  subtask_id: z.number().int().positive(),
+});
+
+export const UpdateSubtaskWithIdSchema = z.object({
+  subtask_id: z.number().int().positive(),
+}).merge(UpdateSubtaskSchema);
+
+export const CompleteSubtaskSchema = z.object({
+  subtask_id: z.number().int().positive(),
+  is_completed: z.boolean(),
+});
+
+// Card Links schemas
+export const CreateCardLinkSchema = z.object({
+  source_card_id: z.number().int().positive(),
+  target_card_id: z.number().int().positive(),
+  link_type: CardLinkTypeSchema,
+  description: z.string().optional(),
+  created_by: z.string().max(255).optional(),
+});
+
+export const UpdateCardLinkSchema = CreateCardLinkSchema.partial().omit({ source_card_id: true, target_card_id: true });
+
+export const CardLinkIdSchema = z.object({
+  link_id: z.number().int().positive(),
+});
+
+export const UpdateCardLinkWithIdSchema = z.object({
+  link_id: z.number().int().positive(),
+}).merge(UpdateCardLinkSchema);
+
+// Time Tracking schemas
+export const CreateTimeEntrySchema = z.object({
+  card_id: z.number().int().positive(),
+  user_name: z.string().max(255).optional(),
+  description: z.string().optional(),
+  start_time: z.string().datetime().optional(),
+  end_time: z.string().datetime().optional(),
+  duration_minutes: z.number().int().min(0).optional(),
+  is_billable: z.boolean().default(false),
+  hourly_rate: z.number().min(0).optional(),
+});
+
+export const UpdateTimeEntrySchema = CreateTimeEntrySchema.partial().omit({ card_id: true });
+
+export const TimeEntryIdSchema = z.object({
+  time_entry_id: z.number().int().positive(),
+});
+
+export const UpdateTimeEntryWithIdSchema = z.object({
+  time_entry_id: z.number().int().positive(),
+}).merge(UpdateTimeEntrySchema);
+
+export const StartTimeTrackingSchema = z.object({
+  card_id: z.number().int().positive(),
+  user_name: z.string().max(255).optional(),
+  description: z.string().optional(),
+});
+
+export const StopTimeTrackingSchema = z.object({
+  time_entry_id: z.number().int().positive(),
+  end_time: z.string().datetime().optional(),
+});
+
+export const UpdateCardTimeEstimateSchema = z.object({
+  card_id: z.number().int().positive(),
+  estimated_hours: z.number().min(0).optional(),
 });
 
 // API response types
