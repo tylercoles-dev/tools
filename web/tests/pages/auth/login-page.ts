@@ -6,17 +6,19 @@ import { TestUser } from '../../fixtures/test-data';
  * Page Object for the Login page
  */
 export class LoginPage extends BasePage {
-  // Page-specific selectors
+  // Page-specific selectors - updated to match actual React component structure
   private readonly selectors = {
-    form: '[data-testid="login-form"]',
-    emailInput: '[data-testid="email-input"]',
-    passwordInput: '[data-testid="password-input"]',
-    loginButton: '[data-testid="login-button"]',
-    signupLink: '[data-testid="signup-link"]',
-    forgotPasswordLink: '[data-testid="forgot-password-link"]',
-    rememberMeCheckbox: '[data-testid="remember-me-checkbox"]',
-    errorMessage: '[data-testid="login-error"]',
-    loadingSpinner: '[data-testid="login-loading"]'
+    form: 'form',
+    emailInput: '#email',
+    passwordInput: '#password',
+    loginButton: 'button[type="submit"]',
+    signupLink: 'a[href="/auth/signup"]',
+    forgotPasswordLink: 'a[href="/auth/forgot-password"]',
+    rememberMeCheckbox: '#remember',
+    errorMessage: '[role="alert"], .error-message, .text-red-600',
+    loadingSpinner: '.loading, [data-loading="true"]',
+    passwordToggle: 'button[type="button"]',
+    cardTitle: 'h1, h2'
   };
 
   constructor(page: Page) {
@@ -29,6 +31,8 @@ export class LoginPage extends BasePage {
 
   protected async waitForPageSpecificElement(): Promise<void> {
     await expect(this.page.locator(this.selectors.form)).toBeVisible();
+    await expect(this.page.locator(this.selectors.emailInput)).toBeVisible();
+    await expect(this.page.locator(this.selectors.passwordInput)).toBeVisible();
   }
 
   /**
@@ -82,7 +86,22 @@ export class LoginPage extends BasePage {
    * Toggle remember me checkbox
    */
   async toggleRememberMe(): Promise<void> {
-    await this.page.click(this.selectors.rememberMeCheckbox);
+    await this.page.check(this.selectors.rememberMeCheckbox);
+  }
+
+  /**
+   * Toggle password visibility
+   */
+  async togglePasswordVisibility(): Promise<void> {
+    await this.page.click(this.selectors.passwordToggle);
+  }
+
+  /**
+   * Check if password is visible
+   */
+  async isPasswordVisible(): Promise<boolean> {
+    const passwordType = await this.page.locator(this.selectors.passwordInput).getAttribute('type');
+    return passwordType === 'text';
   }
 
   /**
@@ -105,10 +124,12 @@ export class LoginPage extends BasePage {
    * Check if login form has validation errors
    */
   async hasValidationErrors(): Promise<boolean> {
-    const emailError = this.page.locator(`${this.selectors.emailInput}[aria-invalid="true"]`);
-    const passwordError = this.page.locator(`${this.selectors.passwordInput}[aria-invalid="true"]`);
+    // Check for validation attributes or error messages
+    const emailInvalid = await this.page.locator(this.selectors.emailInput).getAttribute('aria-invalid') === 'true';
+    const passwordInvalid = await this.page.locator(this.selectors.passwordInput).getAttribute('aria-invalid') === 'true';
+    const hasErrorMessages = await this.page.locator(this.selectors.errorMessage).count() > 0;
     
-    return await emailError.count() > 0 || await passwordError.count() > 0;
+    return emailInvalid || passwordInvalid || hasErrorMessages;
   }
 
   /**
@@ -116,12 +137,24 @@ export class LoginPage extends BasePage {
    */
   async getFieldError(field: 'email' | 'password'): Promise<string> {
     const fieldSelector = field === 'email' ? this.selectors.emailInput : this.selectors.passwordInput;
-    const errorSelector = `${fieldSelector} + [data-testid*="error"]`;
     
-    const errorElement = this.page.locator(errorSelector);
+    // Try multiple ways to find error messages
+    const selectors = [
+      `${fieldSelector} + .error-message`,
+      `${fieldSelector} + .text-red-600`,
+      `${fieldSelector}[aria-describedby] ~ [role="alert"]`,
+      '.error-message',
+      this.selectors.errorMessage
+    ];
     
-    if (await errorElement.count() > 0) {
-      return await errorElement.textContent() || '';
+    for (const selector of selectors) {
+      const errorElement = this.page.locator(selector);
+      if (await errorElement.count() > 0) {
+        const text = await errorElement.textContent();
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      }
     }
     
     return '';
@@ -172,8 +205,8 @@ export class LoginPage extends BasePage {
     passwordValid: boolean;
     formValid: boolean;
   }> {
-    const emailValid = !(await this.page.locator(`${this.selectors.emailInput}[aria-invalid="true"]`).count() > 0);
-    const passwordValid = !(await this.page.locator(`${this.selectors.passwordInput}[aria-invalid="true"]`).count() > 0);
+    const emailValid = await this.page.locator(this.selectors.emailInput).getAttribute('aria-invalid') !== 'true';
+    const passwordValid = await this.page.locator(this.selectors.passwordInput).getAttribute('aria-invalid') !== 'true';
     const formValid = !await this.isLoginButtonDisabled();
 
     return {
@@ -232,7 +265,14 @@ export class LoginPage extends BasePage {
    */
   async testInvalidCredentials(): Promise<void> {
     await this.loginWithCredentials('invalid@test.com', 'wrongpassword');
-    await expect(this.page.locator(this.selectors.errorMessage)).toBeVisible();
+    
+    // Wait for either error message or toast notification
+    try {
+      await expect(this.page.locator(this.selectors.errorMessage)).toBeVisible({ timeout: 5000 });
+    } catch {
+      // Alternative: check for toast notifications
+      await expect(this.page.locator('.toast, [data-sonner-toast]')).toBeVisible({ timeout: 5000 });
+    }
   }
 
   async testEmptyCredentials(): Promise<void> {
@@ -242,7 +282,12 @@ export class LoginPage extends BasePage {
 
   async testValidEmailFormat(): Promise<void> {
     await this.page.fill(this.selectors.emailInput, 'invalid-email');
-    await this.page.blur(); // Trigger validation
-    await expect(this.page.locator(this.selectors.emailInput)).toHaveAttribute('aria-invalid', 'true');
+    await this.page.locator(this.selectors.emailInput).blur(); // Trigger validation
+    
+    // Check for browser validation or aria-invalid attribute
+    const isInvalid = await this.page.locator(this.selectors.emailInput).getAttribute('aria-invalid') === 'true' ||
+                     await this.page.locator(this.selectors.emailInput).evaluate(el => !(el as HTMLInputElement).validity.valid);
+    
+    expect(isInvalid).toBeTruthy();
   }
 }

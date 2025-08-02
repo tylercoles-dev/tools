@@ -1,410 +1,379 @@
-# MCP Tools Web Client - Playwright Testing Framework
+# Kanban Board Test Suite
 
-This directory contains a comprehensive Playwright testing framework for the MCP Tools web client. The framework follows best practices for maintainable, reliable, and scalable automated testing.
+This directory contains comprehensive automated tests for the Kanban board functionality in the MCP Tools web application. The test suite covers all aspects of Kanban board interactions, from basic CRUD operations to complex drag-and-drop scenarios and real-time collaboration.
 
-## 📁 Directory Structure
+## 🎯 Overview
+
+The Kanban test suite provides complete coverage of:
+
+- **Board Management**: Creation, editing, deletion, and listing of boards
+- **Card Operations**: Full CRUD operations with validation and error handling
+- **Drag & Drop**: Comprehensive testing of card movement between and within columns
+- **Real-time Collaboration**: WebSocket-based real-time updates and conflict resolution
+- **Mobile Touch**: Touch-based interactions and mobile-responsive behavior
+- **Performance**: Large board handling, animation smoothness, and resource usage
+- **Visual Regression**: Ensuring consistent visual appearance across different states
+- **Accessibility**: Screen reader support, keyboard navigation, and ARIA compliance
+
+## 📁 Test Structure
 
 ```
 tests/
-├── e2e/                    # End-to-end tests (complete user workflows)
-├── smoke/                  # Fast, essential tests for core functionality
-├── regression/             # Tests protecting against previously fixed bugs
-├── integration/            # Tests validating subsystem interactions
-├── visual/                 # Screenshot comparison tests
-├── accessibility/          # Automated a11y tests
-├── api/                   # Direct API endpoint tests
-├── setup/                 # Global setup and teardown scripts
-├── fixtures/              # Test data and configuration files
-├── pages/                 # Page Object Model implementations
-├── utils/                 # Test utilities and helper functions
-└── README.md             # This documentation
+├── e2e/                                    # End-to-end test scenarios
+│   ├── kanban-board-management.e2e.spec.ts       # Board CRUD operations
+│   ├── kanban-card-operations.e2e.spec.ts        # Card management and validation
+│   ├── kanban-drag-drop.e2e.spec.ts             # Drag and drop functionality
+│   ├── kanban-realtime-collaboration.e2e.spec.ts # Real-time features
+│   ├── kanban-mobile-touch.e2e.spec.ts          # Mobile and touch interactions
+│   └── kanban-performance-ux.e2e.spec.ts        # Performance and UX testing
+├── visual/                                 # Visual regression tests
+│   └── kanban-drag-states.visual.spec.ts        # Visual appearance testing
+├── pages/                                  # Page Object Models
+│   └── kanban/
+│       ├── kanban-boards-page.ts                # Boards listing page
+│       ├── kanban-board-page.ts                 # Individual board page
+│       └── index.ts                             # Exports
+├── fixtures/                               # Test data and utilities
+│   └── kanban-test-data.ts                     # Sample data and generators
+└── utils/                                  # Helper utilities
+    └── kanban-test-helpers.ts                   # Common test functions
 ```
 
-## 🚀 Getting Started
+## 🧪 Test Categories
+
+### End-to-End Tests (`/e2e/`)
+
+#### Board Management Tests
+- **File**: `kanban-board-management.e2e.spec.ts`
+- **Coverage**: Board creation, editing, deletion, listing, search, validation
+- **Key Scenarios**:
+  - Create boards with various configurations
+  - Edit board names and descriptions
+  - Delete boards with confirmation handling
+  - Search and filter boards
+  - Handle validation errors and network failures
+
+#### Card Operations Tests
+- **File**: `kanban-card-operations.e2e.spec.ts`
+- **Coverage**: Card CRUD operations, validation, edge cases
+- **Key Scenarios**:
+  - Create cards with all field types (title, description, priority, assignee, due date)
+  - Edit existing cards and handle conflicts
+  - Delete cards with proper cleanup
+  - Validate required fields and data formats
+  - Handle special characters and large data sets
+
+#### Drag and Drop Tests
+- **File**: `kanban-drag-drop.e2e.spec.ts`
+- **Coverage**: Card movement, visual feedback, edge cases, accessibility
+- **Key Scenarios**:
+  - Drag cards between columns
+  - Reorder cards within same column
+  - Visual feedback during drag operations
+  - Handle invalid drop zones and cancellation
+  - Keyboard-based drag operations
+  - Performance measurement of drag operations
+
+#### Real-time Collaboration Tests
+- **File**: `kanban-realtime-collaboration.e2e.spec.ts`
+- **Coverage**: WebSocket connections, multi-user scenarios, conflict resolution
+- **Key Scenarios**:
+  - WebSocket connection management
+  - Real-time card updates from other users
+  - Simultaneous editing conflict resolution
+  - User presence indicators
+  - Offline/online state handling
+  - Connection recovery scenarios
+
+#### Mobile Touch Tests
+- **File**: `kanban-mobile-touch.e2e.spec.ts`
+- **Coverage**: Touch interactions, mobile layout, gesture support
+- **Key Scenarios**:
+  - Touch-based drag and drop
+  - Mobile-responsive layout verification
+  - Gesture recognition (tap, long press, swipe)
+  - Virtual keyboard interactions
+  - Orientation change handling
+  - Touch accessibility features
+
+#### Performance and UX Tests
+- **File**: `kanban-performance-ux.e2e.spec.ts`
+- **Coverage**: Large board performance, animations, loading states
+- **Key Scenarios**:
+  - Large board loading performance (100+ cards)
+  - Drag operation latency measurement
+  - Animation smoothness verification
+  - Memory leak detection
+  - Resource usage monitoring
+  - User feedback timing
+
+### Visual Regression Tests (`/visual/`)
+
+#### Drag States Visual Tests
+- **File**: `kanban-drag-states.visual.spec.ts`
+- **Coverage**: Visual consistency across different states and browsers
+- **Key Scenarios**:
+  - Initial board layout baseline
+  - Card hover and focus states
+  - Drag preview and drop zone styling
+  - Animation frame verification
+  - Mobile layout variations
+  - Theme and accessibility mode support
+
+## 🏗️ Page Object Models
+
+### KanbanBoardsPage
+Handles interactions with the boards listing page:
+- Board creation and deletion
+- Search and filtering
+- Navigation to individual boards
+- Board information display
+
+### KanbanBoardPage
+Manages individual board interactions:
+- Card creation, editing, and deletion
+- Drag and drop operations
+- Column management
+- Real-time status monitoring
+
+### Utility Classes
+- **KanbanTestHelpers**: Common test operations and utilities
+- **MockWebSocket**: WebSocket mocking for real-time testing
+- **KanbanDataGenerator**: Test data creation and management
+
+## 📊 Test Data Management
+
+### Test Fixtures (`/fixtures/kanban-test-data.ts`)
+
+**Sample Boards**: Pre-configured boards for different test scenarios
+- Development board with typical workflow
+- Marketing board with custom columns
+- Large board for performance testing
+
+**Card Templates**: Reusable card configurations
+- Minimal card (only required fields)
+- Complete card (all fields populated)
+- Overdue card for date testing
+
+**Validation Cases**: Error scenarios and edge cases
+- Invalid titles, dates, and field lengths
+- Special characters and Unicode support
+- Boundary condition testing
+
+**Performance Benchmarks**: Expected performance thresholds
+- Board load time limits
+- Drag operation latency thresholds
+- Real-time update delay limits
+
+## 🚀 Running Tests
 
 ### Prerequisites
-
-- Node.js 18+ installed
-- MCP Tools web application running locally
-- API Gateway running (for full integration tests)
-
-### Installation
-
 ```bash
-# Install dependencies (from web/ directory)
+# Install dependencies
 npm install
 
 # Install Playwright browsers
-npm run test:install
+npx playwright install
 ```
 
-### Basic Usage
-
+### Running All Kanban Tests
 ```bash
-# Run all tests
-npm test
+# Run all Kanban-related tests
+npm run test:e2e -- --grep "Kanban"
 
-# Run with UI mode (interactive)
-npm run test:ui
-
-# Run in headed mode (see browser)
-npm run test:headed
-
-# Debug tests
-npm run test:debug
+# Run specific test categories
+npm run test:e2e tests/e2e/kanban-*.spec.ts
+npm run test:visual tests/visual/kanban-*.spec.ts
 ```
 
-## 🎯 Test Categories
-
-### Smoke Tests (`tests/smoke/`)
-Fast, essential tests ensuring core functionality works:
-- Authentication flows
-- Page loading
-- Navigation
-- Critical user paths
-
+### Running Individual Test Files
 ```bash
-npm run test:smoke
+# Board management tests
+npx playwright test tests/e2e/kanban-board-management.e2e.spec.ts
+
+# Drag and drop tests
+npx playwright test tests/e2e/kanban-drag-drop.e2e.spec.ts
+
+# Visual regression tests
+npx playwright test tests/visual/kanban-drag-states.visual.spec.ts
 ```
 
-### End-to-End Tests (`tests/e2e/`)
-Complete user workflows testing:
-- New user onboarding
-- Cross-platform collaboration
-- Content creation workflows
-- Error handling and recovery
-
+### Cross-Browser Testing
 ```bash
-npm run test:e2e
+# Run on all browsers
+npm run test:chromium tests/e2e/kanban-*.spec.ts
+npm run test:firefox tests/e2e/kanban-*.spec.ts
+npm run test:webkit tests/e2e/kanban-*.spec.ts
+
+# Mobile testing
+npm run test:mobile tests/e2e/kanban-mobile-touch.e2e.spec.ts
 ```
 
-### Regression Tests (`tests/regression/`)
-Protect against previously fixed bugs:
-- Bug reproduction scenarios
-- Edge case handling
-- Data integrity validation
-
+### Performance Testing
 ```bash
-npm run test:regression
+# Performance-focused test runs
+npx playwright test tests/e2e/kanban-performance-ux.e2e.spec.ts --workers=1
 ```
 
-### Integration Tests (`tests/integration/`)
-Validate interactions between components:
-- Form-to-API-to-database flows
-- Real-time updates
-- WebSocket connections
-- Cross-component communication
-
+### Debug Mode
 ```bash
-npm run test:integration
+# Run tests with browser UI for debugging
+npm run test:headed tests/e2e/kanban-drag-drop.e2e.spec.ts
+
+# Debug specific test with Playwright Inspector
+npm run test:debug tests/e2e/kanban-card-operations.e2e.spec.ts
 ```
 
-### Visual Tests (`tests/visual/`)
-Screenshot comparison for UI consistency:
-- Component rendering
-- Layout verification
-- Responsive design validation
-
-```bash
-npm run test:visual
-```
-
-### Accessibility Tests (`tests/accessibility/`)
-Automated accessibility validation:
-- WCAG compliance
-- Keyboard navigation
-- Screen reader compatibility
-- Focus management
-
-```bash
-npm run test:accessibility
-```
-
-### API Tests (`tests/api/`)
-Direct backend endpoint validation:
-- REST API testing
-- Authentication validation
-- Data validation
-- Error response handling
-
-```bash
-npm run test:api
-```
-
-## 🏗️ Architecture
-
-### Page Object Model
-
-The framework uses the Page Object Model pattern for maintainable tests:
-
-```typescript
-// Example usage
-import { LoginPage, DashboardPage } from '../pages';
-
-test('user login flow', async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  const dashboardPage = new DashboardPage(page);
-  
-  await loginPage.goto();
-  await loginPage.loginWithCredentials(user.email, user.password);
-  await dashboardPage.verifyDashboardLoaded();
-});
-```
-
-### Test Utilities
-
-Comprehensive helper functions for common operations:
-
-```typescript
-import { TestHelpers, testData } from '../utils/test-helpers';
-
-test('form handling example', async ({ page }) => {
-  const helpers = new TestHelpers(page);
-  
-  await helpers.fillAndSubmitForm('form', testData.validUser);
-  await helpers.waitForToast('Success!');
-});
-```
-
-### Test Data Management
-
-Centralized test data with generators:
-
-```typescript
-import { TestDataGenerator, testUsers } from '../fixtures/test-data';
-
-// Use predefined data
-const user = testUsers.validUser;
-
-// Generate dynamic data
-const newUser = TestDataGenerator.generateUser();
-const board = TestDataGenerator.generateBoard({ name: 'Custom Board' });
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-```bash
-# Test environment configuration
-BASE_URL=http://localhost:3000        # Web app URL
-API_URL=http://localhost:3001         # API Gateway URL
-NODE_ENV=test                         # Environment
-CI=true                              # CI mode flag
-
-# Feature flags
-VISUAL_TESTS=true                    # Enable visual testing
-A11Y_TESTS=true                      # Enable accessibility testing
-PERF_TESTS=true                      # Enable performance testing
-
-# Test credentials
-TEST_USER_EMAIL=test@mcptools.dev
-TEST_USER_PASSWORD=testpassword123
-```
-
-### Browser Configuration
-
-The framework supports multiple browsers and devices:
-
-```bash
-# Specific browsers
-npm run test:chromium
-npm run test:firefox
-npm run test:webkit
-
-# Mobile devices
-npm run test:mobile
-
-# Authenticated vs unauthenticated tests
-npm run test:auth
-npm run test:unauth
-```
-
-## 📊 Reporting
+## 📈 Test Reports and Monitoring
 
 ### HTML Reports
-
 ```bash
 # Generate and view HTML report
 npm run test:report
 ```
 
-### CI/CD Reports
+### Performance Metrics
+The test suite automatically measures and reports:
+- Board load times
+- Drag operation latency
+- Animation performance
+- Memory usage patterns
+- Network request timing
 
+### Visual Regression Tracking
+- Baseline images stored in `tests/fixtures/screenshots/`
+- Automatic comparison on test runs
+- Diff images generated for failures
+- Cross-browser visual consistency
+
+## 🔧 Configuration
+
+### Playwright Configuration
+The tests use the main `playwright.config.ts` with Kanban-specific settings:
+- Extended timeout for drag operations
+- Visual testing configuration
+- Mobile device emulation
+- Network throttling for performance tests
+
+### Environment Variables
 ```bash
-# Generate CI-friendly reports (JUnit, JSON)
-npm run test:ci
+# Test environment settings
+NODE_ENV=test
+BASE_URL=http://localhost:3000
+
+# Performance testing thresholds
+MAX_BOARD_LOAD_TIME=2000
+MAX_DRAG_LATENCY=100
+MAX_REALTIME_DELAY=500
 ```
 
-### Test Traces
-
-```bash
-# View test traces for debugging
-npm run test:trace
-```
-
-## 🛠️ Development Workflow
-
-### Writing Tests
-
-1. **Choose the right test type** based on what you're testing
-2. **Use Page Objects** for UI interactions
-3. **Leverage test helpers** for common operations
-4. **Follow naming conventions**: `feature.testtype.spec.ts`
-
-### Test Structure
-
-```typescript
-import { test, expect } from '@playwright/test';
-import { PageObject } from '../pages';
-
-test.describe('Feature Name', () => {
-  test.beforeEach(async ({ page }) => {
-    // Setup before each test
-  });
-
-  test('should do something specific', async ({ page }) => {
-    // Arrange
-    const pageObject = new PageObject(page);
-    
-    // Act
-    await pageObject.performAction();
-    
-    // Assert
-    await expect(page.locator('[data-testid="result"]')).toBeVisible();
-  });
-});
-```
-
-### Best Practices
-
-1. **Use data-testid attributes** for reliable element selection
-2. **Wait for elements** explicitly using Playwright's auto-waiting
-3. **Keep tests independent** - each test should work in isolation
-4. **Use meaningful test names** that describe the expected behavior
-5. **Group related tests** using `test.describe()`
-6. **Clean up test data** to prevent test pollution
-
-### Debugging
-
-```bash
-# Debug specific test
-npm run test:debug -- --grep "test name"
-
-# Run with browser UI
-npm run test:headed
-
-# Generate code from interactions
-npm run test:codegen
-```
-
-## 🔄 Continuous Integration
-
-### GitHub Actions
-
-The framework includes comprehensive CI/CD configuration:
-
-- **Multi-browser testing** across Chromium, Firefox, WebKit
-- **Parallel execution** for faster feedback
-- **Test result artifacts** and reports
-- **Visual regression detection**
-- **Accessibility validation**
-
-### Local CI Simulation
-
-```bash
-# Run tests as they would in CI
-npm run test:ci
-
-# Run with multiple workers
-npm run test:parallel
-
-# Run in serial mode (for debugging)
-npm run test:serial
-```
-
-## 📝 Test Data Management
-
-### Static Test Data
-
-Predefined test data in `fixtures/test-data.ts`:
-
-```typescript
-export const testUsers = {
-  validUser: { email: 'test@example.com', password: 'password123' },
-  adminUser: { email: 'admin@example.com', password: 'admin123' }
-};
-```
-
-### Dynamic Test Data
-
-Generate unique test data to avoid conflicts:
-
-```typescript
-const user = TestDataGenerator.generateUser();
-const board = TestDataGenerator.generateBoard();
-```
-
-### Test Data Cleanup
-
-Automatic cleanup prevents test pollution:
-
-```typescript
-test.afterEach(async ({ page }) => {
-  const helpers = new TestHelpers(page);
-  await helpers.cleanupTestData();
-});
-```
-
-## 🚨 Troubleshooting
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **Flaky tests**: Use proper waits and selectors
-2. **Authentication failures**: Check test credentials
-3. **Timeout errors**: Increase timeout or optimize tests
-4. **Element not found**: Verify data-testid attributes exist
+**Drag and Drop Failures**
+- Ensure proper timing between mouse events
+- Verify element visibility before drag operations
+- Check for overlapping elements that might interfere
 
-### Debugging Tips
+**Visual Test Failures**
+- Update baseline images when UI changes are intentional
+- Check for animation timing differences across environments
+- Verify consistent font rendering
 
-1. **Use headed mode** to see what's happening
-2. **Add screenshots** at failure points
-3. **Check network requests** for API issues
-4. **Verify test data** setup and cleanup
+**Real-time Test Issues**
+- Ensure WebSocket mock is properly set up
+- Verify test isolation between scenarios
+- Check for race conditions in async operations
 
-### Getting Help
+**Performance Test Variability**
+- Run performance tests in isolation (`--workers=1`)
+- Account for system load variations
+- Use relative performance comparisons
 
-1. Check test logs and traces
-2. Review HTML reports for detailed information
-3. Use browser developer tools in headed mode
-4. Consult Playwright documentation
+### Debug Helpers
+
+**Test Data Inspection**
+```javascript
+// Log current board state
+console.log(await boardPage.getBoardTitle());
+console.log(await boardPage.getColumns());
+```
+
+**Visual Debug**
+```javascript
+// Take screenshot for manual inspection
+await page.screenshot({ path: 'debug-screenshot.png' });
+```
+
+**Network Monitoring**
+```javascript
+// Monitor API calls during tests
+page.on('request', request => console.log('Request:', request.url()));
+page.on('response', response => console.log('Response:', response.status()));
+```
+
+## 🎨 Best Practices
+
+### Test Organization
+- Use descriptive test names that explain the scenario
+- Group related tests in `describe` blocks
+- Maintain proper test isolation and cleanup
+- Follow the AAA pattern (Arrange, Act, Assert)
+
+### Page Object Usage
+- Use page objects for all UI interactions
+- Keep business logic in page objects, not tests
+- Maintain consistent method naming across page objects
+- Use meaningful selector strategies (data-testid preferred)
+
+### Data Management
+- Use test data generators for dynamic content
+- Clean up test data after each test
+- Use meaningful test data that reflects real usage
+- Avoid hardcoded values that might change
+
+### Performance Considerations
+- Minimize test setup overhead
+- Use parallel execution where possible
+- Cache expensive operations (board creation)
+- Monitor test execution time and optimize slow tests
 
 ## 📚 Additional Resources
 
-- [Playwright Documentation](https://playwright.dev/)
-- [Page Object Model Best Practices](https://playwright.dev/docs/pom)
-- [Testing Best Practices](https://playwright.dev/docs/best-practices)
-- [Debugging Tests](https://playwright.dev/docs/debug)
+### Playwright Documentation
+- [Playwright Testing Guide](https://playwright.dev/docs/intro)
+- [Page Object Model](https://playwright.dev/docs/test-pom)
+- [Visual Testing](https://playwright.dev/docs/test-screenshots)
 
-## 🤝 Contributing
+### Kanban Best Practices
+- [Kanban Methodology](https://www.atlassian.com/agile/kanban)
+- [Drag and Drop UX](https://www.nngroup.com/articles/drag-drop/)
+- [Touch Interface Design](https://www.smashingmagazine.com/2012/02/finger-friendly-design-ideal-mobile-touchscreen-target-sizes/)
 
-When adding new tests:
+### Accessibility Testing
+- [Web Accessibility Guidelines](https://www.w3.org/WAI/WCAG21/quickref/)
+- [ARIA Best Practices](https://www.w3.org/WAI/ARIA/apg/)
+- [Keyboard Navigation Patterns](https://webaim.org/techniques/keyboard/)
 
-1. Follow the existing directory structure
-2. Use appropriate test categories
-3. Implement Page Objects for new pages
-4. Add test data to fixtures
-5. Update this documentation if needed
-6. Ensure tests pass in CI
+---
 
-## 📋 Test Checklist
+## 🔄 Continuous Integration
 
-Before committing new tests:
+The Kanban test suite is designed to integrate with CI/CD pipelines:
 
-- [ ] Tests are categorized correctly
-- [ ] Page Objects are implemented
-- [ ] Test data is managed properly
-- [ ] Tests are independent and cleanup after themselves
-- [ ] Tests follow naming conventions
-- [ ] Tests pass locally and in CI
-- [ ] Documentation is updated if needed
+```yaml
+# Example GitHub Actions configuration
+- name: Run Kanban Tests
+  run: |
+    npm run test:e2e -- --grep "Kanban"
+    npm run test:visual tests/visual/kanban-*.spec.ts
+```
+
+### Test Artifacts
+- HTML reports with detailed results
+- Screenshots and videos for failed tests
+- Performance metrics and trends
+- Visual regression diff images
+
+This comprehensive test suite ensures the Kanban board functionality remains reliable, performant, and user-friendly across all supported platforms and scenarios.

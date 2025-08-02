@@ -4,7 +4,7 @@ import { MCPServer, LogLevel } from '@tylercoles/mcp-server';
 import { HttpTransport } from '@tylercoles/mcp-transport-http';
 import { KanbanService } from '@mcp-tools/core/kanban';
 import { registerTools } from './tools/index.js';
-import { KanbanWebSocketServer } from './websocket-server.js';
+// WebSocket server import removed - not implemented yet
 import path from 'path';
 import { fileURLToPath } from 'url';
 

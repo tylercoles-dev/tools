@@ -7,19 +7,21 @@ import { TestUser } from '../../fixtures/test-data';
  */
 export class SignupPage extends BasePage {
   private readonly selectors = {
-    form: '[data-testid="signup-form"]',
-    firstNameInput: '[data-testid="first-name-input"]',
-    lastNameInput: '[data-testid="last-name-input"]',
-    emailInput: '[data-testid="email-input"]',
-    passwordInput: '[data-testid="password-input"]',
-    confirmPasswordInput: '[data-testid="confirm-password-input"]',
-    termsCheckbox: '[data-testid="terms-checkbox"]',
-    signupButton: '[data-testid="signup-button"]',
-    loginLink: '[data-testid="login-link"]',
-    errorMessage: '[data-testid="signup-error"]',
-    successMessage: '[data-testid="signup-success"]',
-    loadingSpinner: '[data-testid="signup-loading"]',
-    passwordStrengthIndicator: '[data-testid="password-strength"]'
+    form: 'form',
+    nameInput: '#name',
+    emailInput: '#email', 
+    passwordInput: '#password',
+    confirmPasswordInput: '#confirmPassword',
+    termsCheckbox: '#terms',
+    signupButton: 'button[type="submit"]',
+    loginLink: 'a[href="/auth/login"]',
+    errorMessage: '[role="alert"], .error-message, .text-red-600',
+    successMessage: '.success-message, .text-green-600',
+    loadingSpinner: '.loading, [data-loading="true"]',
+    passwordStrengthIndicator: '.password-strength',
+    passwordToggle: 'button[type="button"]',
+    cardTitle: 'h1, h2',
+    passwordMismatchError: '.text-red-600'
   };
 
   constructor(page: Page) {
@@ -38,8 +40,7 @@ export class SignupPage extends BasePage {
    * Fill in all signup form fields
    */
   async fillSignupForm(user: TestUser): Promise<void> {
-    await this.page.fill(this.selectors.firstNameInput, user.firstName);
-    await this.page.fill(this.selectors.lastNameInput, user.lastName);
+    await this.page.fill(this.selectors.nameInput, `${user.firstName} ${user.lastName}`);
     await this.page.fill(this.selectors.emailInput, user.email);
     await this.page.fill(this.selectors.passwordInput, user.password);
     await this.page.fill(this.selectors.confirmPasswordInput, user.password);
@@ -48,12 +49,8 @@ export class SignupPage extends BasePage {
   /**
    * Fill individual form fields
    */
-  async fillFirstName(firstName: string): Promise<void> {
-    await this.page.fill(this.selectors.firstNameInput, firstName);
-  }
-
-  async fillLastName(lastName: string): Promise<void> {
-    await this.page.fill(this.selectors.lastNameInput, lastName);
+  async fillName(name: string): Promise<void> {
+    await this.page.fill(this.selectors.nameInput, name);
   }
 
   async fillEmail(email: string): Promise<void> {
@@ -141,22 +138,33 @@ export class SignupPage extends BasePage {
   /**
    * Get field validation error
    */
-  async getFieldError(field: 'firstName' | 'lastName' | 'email' | 'password' | 'confirmPassword'): Promise<string> {
+  async getFieldError(field: 'name' | 'email' | 'password' | 'confirmPassword'): Promise<string> {
     const fieldSelectorMap = {
-      firstName: this.selectors.firstNameInput,
-      lastName: this.selectors.lastNameInput,
+      name: this.selectors.nameInput,
       email: this.selectors.emailInput,
       password: this.selectors.passwordInput,
       confirmPassword: this.selectors.confirmPasswordInput
     };
 
     const fieldSelector = fieldSelectorMap[field];
-    const errorSelector = `${fieldSelector} + [data-testid*="error"]`;
     
-    const errorElement = this.page.locator(errorSelector);
+    // Try multiple ways to find error messages
+    const selectors = [
+      `${fieldSelector} + .error-message`,
+      `${fieldSelector} + .text-red-600`, 
+      '.error-message',
+      this.selectors.errorMessage,
+      this.selectors.passwordMismatchError
+    ];
     
-    if (await errorElement.count() > 0) {
-      return await errorElement.textContent() || '';
+    for (const selector of selectors) {
+      const errorElement = this.page.locator(selector);
+      if (await errorElement.count() > 0) {
+        const text = await errorElement.textContent();
+        if (text && text.trim()) {
+          return text.trim();
+        }
+      }
     }
 
     return '';
@@ -166,25 +174,22 @@ export class SignupPage extends BasePage {
    * Check form validation state
    */
   async getFormValidationState(): Promise<{
-    firstNameValid: boolean;
-    lastNameValid: boolean;
+    nameValid: boolean;
     emailValid: boolean;
     passwordValid: boolean;
     confirmPasswordValid: boolean;
     termsAccepted: boolean;
     formValid: boolean;
   }> {
-    const firstNameValid = !(await this.page.locator(`${this.selectors.firstNameInput}[aria-invalid="true"]`).count() > 0);
-    const lastNameValid = !(await this.page.locator(`${this.selectors.lastNameInput}[aria-invalid="true"]`).count() > 0);
-    const emailValid = !(await this.page.locator(`${this.selectors.emailInput}[aria-invalid="true"]`).count() > 0);
-    const passwordValid = !(await this.page.locator(`${this.selectors.passwordInput}[aria-invalid="true"]`).count() > 0);
-    const confirmPasswordValid = !(await this.page.locator(`${this.selectors.confirmPasswordInput}[aria-invalid="true"]`).count() > 0);
+    const nameValid = await this.page.locator(this.selectors.nameInput).getAttribute('aria-invalid') !== 'true';
+    const emailValid = await this.page.locator(this.selectors.emailInput).getAttribute('aria-invalid') !== 'true';
+    const passwordValid = await this.page.locator(this.selectors.passwordInput).getAttribute('aria-invalid') !== 'true';
+    const confirmPasswordValid = await this.page.locator(this.selectors.confirmPasswordInput).getAttribute('aria-invalid') !== 'true';
     const termsAccepted = await this.areTermsAccepted();
     const formValid = !await this.isSignupButtonDisabled();
 
     return {
-      firstNameValid,
-      lastNameValid,
+      nameValid,
       emailValid,
       passwordValid,
       confirmPasswordValid,
@@ -214,7 +219,24 @@ export class SignupPage extends BasePage {
     await this.fillConfirmPassword('differentpassword');
     await this.page.locator(this.selectors.confirmPasswordInput).blur();
     
-    await expect(this.page.locator(this.selectors.confirmPasswordInput)).toHaveAttribute('aria-invalid', 'true');
+    // Check for mismatch error message
+    await expect(this.page.locator(this.selectors.passwordMismatchError)).toBeVisible();
+  }
+
+  /**
+   * Toggle password visibility
+   */
+  async togglePasswordVisibility(): Promise<void> {
+    const toggleButtons = this.page.locator(this.selectors.passwordToggle);
+    await toggleButtons.first().click();
+  }
+
+  /**
+   * Check if password is visible
+   */
+  async isPasswordVisible(): Promise<boolean> {
+    const passwordType = await this.page.locator(this.selectors.passwordInput).getAttribute('type');
+    return passwordType === 'text';
   }
 
   /**
@@ -244,10 +266,7 @@ export class SignupPage extends BasePage {
   async testKeyboardNavigation(): Promise<void> {
     // Tab through all form fields
     await this.page.keyboard.press('Tab');
-    await expect(this.page.locator(this.selectors.firstNameInput)).toBeFocused();
-
-    await this.page.keyboard.press('Tab');
-    await expect(this.page.locator(this.selectors.lastNameInput)).toBeFocused();
+    await expect(this.page.locator(this.selectors.nameInput)).toBeFocused();
 
     await this.page.keyboard.press('Tab');
     await expect(this.page.locator(this.selectors.emailInput)).toBeFocused();
@@ -276,8 +295,7 @@ export class SignupPage extends BasePage {
    * Clear the entire form
    */
   async clearForm(): Promise<void> {
-    await this.page.fill(this.selectors.firstNameInput, '');
-    await this.page.fill(this.selectors.lastNameInput, '');
+    await this.page.fill(this.selectors.nameInput, '');
     await this.page.fill(this.selectors.emailInput, '');
     await this.page.fill(this.selectors.passwordInput, '');
     await this.page.fill(this.selectors.confirmPasswordInput, '');
@@ -310,7 +328,7 @@ export class SignupPage extends BasePage {
    */
   async checkAccessibility(): Promise<void> {
     // Check all inputs have proper labels
-    const labels = ['first-name', 'last-name', 'email', 'password', 'confirm-password'];
+    const labels = ['name', 'email', 'password', 'confirmPassword', 'terms'];
     
     for (const label of labels) {
       await expect(this.page.locator(`label[for="${label}"]`)).toBeVisible();
@@ -324,8 +342,10 @@ export class SignupPage extends BasePage {
     await expect(this.page.locator(this.selectors.emailInput)).toHaveAttribute('type', 'email');
 
     // Check required attributes
+    await expect(this.page.locator(this.selectors.nameInput)).toHaveAttribute('required');
     await expect(this.page.locator(this.selectors.emailInput)).toHaveAttribute('required');
     await expect(this.page.locator(this.selectors.passwordInput)).toHaveAttribute('required');
+    await expect(this.page.locator(this.selectors.confirmPasswordInput)).toHaveAttribute('required');
   }
 
   /**

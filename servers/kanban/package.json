@@ -13,7 +13,9 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "db:migrate": "node -e \"import('./dist/database/index.js').then(m => new m.KanbanDatabase({ type: 'sqlite', filename: './kanban.db' }).initialize())\""
+    "db:migrate": "node -e \"import('./dist/database/index.js').then(m => new m.KanbanDatabase({ type: 'sqlite', filename: './kanban.db' }).initialize())\"",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "keywords": [
     "mcp",
@@ -42,7 +44,10 @@
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
+    "ts-jest": "^29.1.4"
   },
   "engines": {
     "node": ">=18.0.0"

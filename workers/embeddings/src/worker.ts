@@ -225,14 +225,14 @@ export class EmbeddingsWorker {
       });
 
       // Extract texts from requests
-      const texts = request.requests.map(r => r.text);
+      const texts = request.requests.map((r: EmbeddingRequest) => r.text);
       
       // Generate embeddings in batch
       const embeddings = await this.embeddingProvider.generateEmbeddingsBatch(texts);
       const processingTimeMs = Date.now() - startTime;
       
       // Create responses for each embedding
-      const responses: EmbeddingResponse[] = request.requests.map((req, i) => ({
+      const responses: EmbeddingResponse[] = request.requests.map((req: EmbeddingRequest, i: number) => ({
         request_id: req.request_id,
         embedding: embeddings[i],
         dimension: this.embeddingProvider.getDimension(),
@@ -280,8 +280,6 @@ export class EmbeddingsWorker {
 
   private async handleStatsRequest(msg: any): Promise<void> {
     try {
-      const memoryUsage = process.memoryUsage();
-      const uptime = Date.now() - this.startTime;
       const avgProcessingTime = this.stats.totalRequests > 0 
         ? this.stats.totalProcessingTime / this.stats.totalRequests 
         : 0;

@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { BaseWorkerConfigSchema, type WorkerMetrics, WorkerError } from '@mcp-tools/core/shared';
+import { BaseWorkerConfigSchema, type WorkerMetrics, WorkerError } from '@mcp-tools/core';
 
 // Re-export shared embedding types from core
 export {
@@ -20,7 +20,7 @@ export {
   type EmbeddingBatchResponse,
   EmbeddingBatchRequestSchema,
   EmbeddingBatchResponseSchema,
-} from '@mcp-tools/core/shared';
+} from '@mcp-tools/core';
 
 // Re-export shared worker types from core
 export {
@@ -36,7 +36,7 @@ export {
   WorkerConfigurationError,
   WorkerConnectionError,
   WORKER_SUBJECTS,
-} from '@mcp-tools/core/shared';
+} from '@mcp-tools/core';
 
 // Worker-specific configuration extending base config
 export const EmbeddingsWorkerConfigSchema = BaseWorkerConfigSchema.extend({

@@ -45,6 +45,10 @@ async function main() {
       }
     } else if (error instanceof WorkerError) {
       console.error(`Worker Error [${error.code}]:`, error.message);
+    } else if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('Unknown error:', error);
     }
 
     process.exit(1);

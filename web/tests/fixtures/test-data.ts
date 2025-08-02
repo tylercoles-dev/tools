@@ -76,6 +76,222 @@ export const testUsers: Record<string, TestUser> = {
 };
 
 /**
+ * Authentication test scenarios and edge cases
+ */
+export const authTestData = {
+  // Valid login scenarios
+  validLogins: [
+    {
+      email: 'test@mcptools.dev',
+      password: 'testpassword123',
+      description: 'Standard valid user'
+    },
+    {
+      email: 'admin@mcptools.dev', 
+      password: 'adminpassword123',
+      description: 'Admin user'
+    }
+  ],
+
+  // Invalid login scenarios
+  invalidLogins: [
+    {
+      email: 'nonexistent@test.com',
+      password: 'anypassword',
+      description: 'Non-existent email',
+      expectedError: 'Invalid credentials'
+    },
+    {
+      email: 'test@mcptools.dev',
+      password: 'wrongpassword',
+      description: 'Wrong password',
+      expectedError: 'Invalid credentials'
+    },
+    {
+      email: '',
+      password: 'testpassword123',
+      description: 'Empty email',
+      expectedError: 'Email is required'
+    },
+    {
+      email: 'test@mcptools.dev',
+      password: '',
+      description: 'Empty password',
+      expectedError: 'Password is required'
+    },
+    {
+      email: 'invalid-email',
+      password: 'testpassword123',
+      description: 'Invalid email format',
+      expectedError: 'Please enter a valid email'
+    }
+  ],
+
+  // Email format validation test cases
+  emailValidationCases: [
+    { email: 'valid@test.com', valid: true },
+    { email: 'user.name@domain.com', valid: true },
+    { email: 'user+tag@domain.co.uk', valid: true },
+    { email: 'invalid-email', valid: false },
+    { email: '@domain.com', valid: false },
+    { email: 'user@', valid: false },
+    { email: 'user@domain', valid: false },
+    { email: '', valid: false },
+    { email: 'user space@domain.com', valid: false }
+  ],
+
+  // Password validation test cases
+  passwordValidationCases: [
+    { password: 'validpass123', valid: true, strength: 'strong' },
+    { password: 'weakpass', valid: false, strength: 'weak' },
+    { password: '123456', valid: false, strength: 'weak' },
+    { password: '', valid: false, strength: 'none' },
+    { password: 'a', valid: false, strength: 'weak' },
+    { password: 'verylongpasswordwithoutdigits', valid: true, strength: 'medium' },
+    { password: 'ComplexP@ss123!', valid: true, strength: 'strong' }
+  ],
+
+  // Valid signup scenarios
+  validSignups: [
+    {
+      name: 'John Doe',
+      email: `john.doe+${Date.now()}@test.com`,
+      password: 'securepassword123',
+      confirmPassword: 'securepassword123',
+      acceptTerms: true,
+      description: 'Standard valid signup'
+    },
+    {
+      name: 'Jane Smith-Wilson',
+      email: `jane.smith+${Date.now()}@test.com`,
+      password: 'AnotherSecure123!',
+      confirmPassword: 'AnotherSecure123!',
+      acceptTerms: true,
+      description: 'Hyphenated name signup'
+    }
+  ],
+
+  // Invalid signup scenarios
+  invalidSignups: [
+    {
+      name: '',
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'password123',
+      acceptTerms: true,
+      description: 'Empty name',
+      expectedError: 'Name is required'
+    },
+    {
+      name: 'Test User',
+      email: '',
+      password: 'password123',
+      confirmPassword: 'password123',
+      acceptTerms: true,
+      description: 'Empty email',
+      expectedError: 'Email is required'
+    },
+    {
+      name: 'Test User',
+      email: 'invalid-email',
+      password: 'password123',
+      confirmPassword: 'password123',
+      acceptTerms: true,
+      description: 'Invalid email format',
+      expectedError: 'Please enter a valid email'
+    },
+    {
+      name: 'Test User',
+      email: 'test@example.com',
+      password: '',
+      confirmPassword: '',
+      acceptTerms: true,
+      description: 'Empty passwords',
+      expectedError: 'Password is required'
+    },
+    {
+      name: 'Test User',
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'different123',
+      acceptTerms: true,
+      description: 'Password mismatch',
+      expectedError: 'Passwords do not match'
+    },
+    {
+      name: 'Test User',
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'password123',
+      acceptTerms: false,
+      description: 'Terms not accepted',
+      expectedError: 'You must accept the terms'
+    },
+    {
+      name: 'Test User',
+      email: 'test@mcptools.dev', // Existing user email
+      password: 'password123',
+      confirmPassword: 'password123',
+      acceptTerms: true,
+      description: 'Email already exists',
+      expectedError: 'Email already registered'
+    }
+  ],
+
+  // Security test cases
+  securityTestCases: {
+    xssAttempts: [
+      '<script>alert("xss")</script>',
+      '"><script>alert("xss")</script>',
+      'javascript:alert("xss")',
+      '<img src="x" onerror="alert(\'xss\')">'
+    ],
+    sqlInjectionAttempts: [
+      "'; DROP TABLE users; --",
+      "admin'--",
+      "admin' OR '1'='1",
+      "'; INSERT INTO users VALUES ('hacker','pass'); --"
+    ],
+    specialCharacters: [
+      'Test™User®',
+      '用户测试',
+      'Tëst Üsér',
+      'Test\nUser',
+      'Test\tUser'
+    ]
+  },
+
+  // Performance test cases
+  performanceTestCases: {
+    longInputs: {
+      veryLongEmail: 'a'.repeat(100) + '@test.com',
+      veryLongName: 'Test ' + 'User '.repeat(50),
+      veryLongPassword: 'password' + '123'.repeat(100)
+    },
+    rapidSubmissions: {
+      intervalMs: 100,
+      attempts: 10
+    }
+  },
+
+  // Browser compatibility test cases  
+  browserTestCases: {
+    autofillScenarios: [
+      {
+        email: 'saved@browser.com',
+        password: 'savedpassword123',
+        description: 'Browser autofill test'
+      }
+    ],
+    keyboardShortcuts: [
+      { key: 'Tab', description: 'Tab navigation' },
+      { key: 'Enter', description: 'Enter to submit' },
+      { key: 'Escape', description: 'Escape to cancel' }
+    ]
+  }
+};
+
+/**
  * Kanban board fixtures
  */
 export const testBoards: Record<string, TestBoard> = {

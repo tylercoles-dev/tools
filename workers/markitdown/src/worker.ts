@@ -118,7 +118,7 @@ export class MarkItDownWorker {
     const startTime = Date.now();
     
     try {
-      const request: ConvertDocumentRequest = this.jsonCodec.decode(msg.data);
+      const request = this.jsonCodec.decode(msg.data) as ConvertDocumentRequest;
       
       this.logger.debug('Processing document conversion request', {
         filename: request.filename,
@@ -167,7 +167,7 @@ export class MarkItDownWorker {
     const startTime = Date.now();
     
     try {
-      const request: ConvertUrlRequest = this.jsonCodec.decode(msg.data);
+      const request = this.jsonCodec.decode(msg.data) as ConvertUrlRequest;
       
       this.logger.debug('Processing URL conversion request', {
         url: request.url,
