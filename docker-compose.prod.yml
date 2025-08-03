@@ -1,0 +1,75 @@
+# Production Docker Compose configuration with scaling
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+services:
+  # Production scaling configuration
+  gateway:
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  embeddings-worker:
+    deploy:
+      replicas: 4  # Scale for heavy embedding workloads
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+
+  markitdown-worker:
+    deploy:
+      replicas: 2
+
+  kanban-server:
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+
+  wiki-server:
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+
+  memory-server:
+    deploy:
+      replicas: 2  # Memory server needs more resources
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+
+  web:
+    deploy:
+      replicas: 4  # Scale web frontend for load
+      update_config:
+        parallelism: 2
+        delay: 10s
+
+  # Add load balancer labels for production
+  nginx:
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == manager
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcp-tools.rule=Host(`your-domain.com`)"
+      - "traefik.http.services.mcp-tools.loadbalancer.server.port=80"

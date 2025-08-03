@@ -77,95 +77,21 @@ export class MemoryDatabase {
   }
 
   async initialize(): Promise<void> {
-    // TODO: Create database tables
-    await this.createTables();
+    // Database initialization is now handled by the dedicated migration service
+    // This method is kept for compatibility but performs no database setup
+    console.log('Memory database initialization: Database migrations are handled by the migration service');
+    
+    // Test database connection to ensure it's available
+    try {
+      await this.db.selectFrom('memories').select('id').limit(1).execute();
+      console.log('Memory database connection verified successfully');
+    } catch (error) {
+      console.error('Memory database connection failed. Ensure migration service has completed:', error);
+      throw new Error('Database not available. Migration service may not have completed successfully.');
+    }
   }
 
-  private async createTables(): Promise<void> {
-    // Create memories table
-    await this.db.schema
-      .createTable('memories')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('content_hash', 'text', (col) => col.notNull())
-      .addColumn('context', 'text', (col) => col.notNull()) // JSON
-      .addColumn('importance', 'integer', (col) => col.notNull().defaultTo(1))
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('access_count', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('last_accessed_at', 'text')
-      .addColumn('vector_id', 'text')
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('created_by', 'text')
-      .addColumn('metadata', 'text') // JSON
-      .execute();
-
-    // Create relationships table
-    await this.db.schema
-      .createTable('relationships')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('source_id', 'text', (col) => col.notNull())
-      .addColumn('target_id', 'text', (col) => col.notNull())
-      .addColumn('relationship_type', 'text', (col) => col.notNull())
-      .addColumn('strength', 'real', (col) => col.notNull().defaultTo(1.0))
-      .addColumn('bidirectional', 'boolean', (col) => col.notNull().defaultTo(false))
-      .addColumn('metadata', 'text', (col) => col.notNull().defaultTo('{}'))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('last_updated', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .execute();
-
-    // Create concepts table
-    await this.db.schema
-      .createTable('concepts')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('description', 'text')
-      .addColumn('type', 'text', (col) => col.notNull())
-      .addColumn('confidence', 'real', (col) => col.notNull().defaultTo(1.0))
-      .addColumn('extracted_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .execute();
-
-    // Create memory_concepts junction table
-    await this.db.schema
-      .createTable('memory_concepts')
-      .ifNotExists()
-      .addColumn('memory_id', 'text', (col) => col.notNull())
-      .addColumn('concept_id', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .execute();
-
-    // Create usage tracking table
-    await this.db.schema
-      .createTable('usage_tracking')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('service', 'text', (col) => col.notNull())
-      .addColumn('operation', 'text', (col) => col.notNull())
-      .addColumn('tokens_used', 'integer')
-      .addColumn('cost_usd', 'real')
-      .addColumn('timestamp', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .execute();
-
-    // Add indexes for performance
-    await sql`CREATE INDEX IF NOT EXISTS idx_memories_content_hash ON memories(content_hash)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_memories_created_at ON memories(created_at)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_memories_created_by ON memories(created_by)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_memories_status ON memories(status)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_id)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_id)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_concepts_name ON concepts(name)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_concepts_type ON concepts(type)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_memory_concepts_memory ON memory_concepts(memory_id)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_memory_concepts_concept ON memory_concepts(concept_id)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_usage_tracking_timestamp ON usage_tracking(timestamp)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_usage_tracking_service ON usage_tracking(service)`.execute(this.db);
-  }
+  // Database schema creation is now handled by the dedicated migration service
 
   // Repository methods
   async createMemory(memory: Omit<MemoryTable, 'id' | 'created_at' | 'updated_at'>): Promise<MemoryTable> {

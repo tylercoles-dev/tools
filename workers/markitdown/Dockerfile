@@ -1,44 +1,75 @@
-FROM node:18-alpine
+# Markitdown Worker Dockerfile
+FROM node:22-alpine AS base
 
 # Install Python and required packages for MarkItDown
 RUN apk add --no-cache \
     python3 \
     py3-pip \
-    py3-dev \
+    python3-dev \
     gcc \
     musl-dev \
     libffi-dev \
     openssl-dev \
-    && python3 -m pip install --upgrade pip
+    libc6-compat
 
-# Install MarkItDown and dependencies
-RUN pip3 install markitdown
+# Create and use virtual environment for Python packages
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip && pip install markitdown
 
-# Create app directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files and install ALL dependencies (including dev) for build
+COPY workers/markitdown/package*.json ./
+RUN npm install
 
-# Install Node.js dependencies
-RUN npm ci --only=production
+# Copy core dependency (built from root context)
+COPY core/dist ./core/dist
+COPY core/src ./core/src
+COPY core/package*.json ./core/
+COPY core/tsconfig.json ./core/
+
+# Install core as a local package to fix dependency resolution
+RUN cd core && npm install && cd ..
+RUN npm install ./core
+
+# Copy root tsconfig.json for project references
+COPY tsconfig.json ../tsconfig.json
+
+# Copy source code
+COPY workers/markitdown/src ./src
+COPY workers/markitdown/tsconfig*.json ./
+COPY workers/markitdown/tsup.config.* ./
+
+# Build the worker
+RUN npm run build
+
+# Production stage  
+FROM node:22-alpine AS production
+
+# Install Python runtime and recreate virtual environment
+RUN apk add --no-cache python3 py3-pip
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --upgrade pip && pip install markitdown
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 worker
+
+WORKDIR /app
 
 # Copy built application
-COPY dist ./dist
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S markitdown -u 1001
+COPY --from=base --chown=worker:nodejs /app/dist ./dist
+COPY --from=base --chown=worker:nodejs /app/package*.json ./
+COPY --from=base --chown=worker:nodejs /app/node_modules ./node_modules
+COPY --from=base --chown=worker:nodejs /app/core ./core
 
 # Create temp directory for file processing
-RUN mkdir -p /tmp/markitdown && chown markitdown:nodejs /tmp/markitdown
+RUN mkdir -p /tmp/markitdown && chown worker:nodejs /tmp/markitdown
 
-USER markitdown
+USER worker
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "console.log('Health check - worker running')" || exit 1
-
-EXPOSE 3000
 
 CMD ["npm", "start"]

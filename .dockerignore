@@ -1,14 +1,22 @@
 # Dependencies
 node_modules
+**/node_modules
 npm-debug.log*
+package-lock.json
+**/package-lock.json
 
 # Next.js
 .next/
 out/
+**/.next/
+**/out/
 
-# Production builds
+# Production builds (keep core/dist for dependencies)
 dist/
+**/dist/
+!core/dist/
 build/
+**/build/
 
 # Environment files
 .env
@@ -55,10 +63,11 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 
-# Documentation
+# Documentation (keep deployment docs)
 README.md
 docs/
 *.md
+!DOCKER_DEPLOYMENT.md
 
 # Test files
 __tests__/
@@ -66,13 +75,64 @@ __tests__/
 **/*.test.ts
 **/*.spec.js
 **/*.spec.ts
+tests/
+web/tests/
+**/*.test.tsx
 
 # Development files
 .eslintrc*
 .prettierrc*
-tsconfig.json
 jest.config.*
+playwright.config.*
+postcss.config.*
+tailwind.config.*
+
+# Keep required tsconfig files but exclude build artifacts
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Database files (development)
+*.db
+*.sqlite
+*.sqlite3
+
+# GitHub Actions (not needed in container)
+.github/
+
+# Deployment scripts (not needed in container)
+deploy.sh
 
 # Temporary files
 tmp/
 temp/
+
+# Large directories that shouldn't be in build context
+web/coverage/
+web/.next/
+**/coverage/
+**/*.tsbuildinfo
+
+# Database files (only exclude database files, not database source directories)
+*.db
+*.sqlite
+*.sqlite3
+gateway/*.db
+
+# Log files
+*.log
+**/logs/
+gateway/*.log
+
+# Cache directories
+**/.npm/
+**/.cache/
+**/dist/
+!core/dist/
+
+# IDE and OS files
+**/.DS_Store
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/Thumbs.db

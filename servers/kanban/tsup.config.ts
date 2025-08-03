@@ -18,7 +18,11 @@ export default defineConfig({
     'mysql2', 
     'pg',
     'marked',
-    'zod'
+    'zod',
+    'express',
+    'ws',
+    '@tylercoles/mcp-server',
+    '@tylercoles/mcp-transport-http'
   ],
   env: {
     NODE_ENV: 'production'

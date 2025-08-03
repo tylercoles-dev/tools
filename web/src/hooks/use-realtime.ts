@@ -284,3 +284,15 @@ export function useRealtimePresence() {
 
   return useWebSocketSubscription('presence_update', handlePresenceUpdate);
 }
+
+// General useRealtime hook that components are trying to import
+export function useRealtime() {
+  return {
+    useConnection: useRealtimeConnection,
+    useUpdates: useRealtimeUpdates,
+    useKanban: useRealtimeKanban,
+    useMemory: useRealtimeMemory,
+    useWiki: useRealtimeWiki,
+    usePresence: useRealtimePresence,
+  };
+}

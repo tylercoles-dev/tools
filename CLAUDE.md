@@ -220,3 +220,8 @@ If you see module resolution errors:
 
 ## Tooling Notes
 - Use @docs\TECHNICAL_DEBT.md as a tracking file for work items
+
+## Project Collaboration Strategy
+
+### Team Coordination
+- Remember to utilize @agent-nodejs-backend-engineer @agent-fullstack-feature-developer @agent-devops-infrastructure-engineer and @agent-playwright-qa-engineer when working on issues. They can handle implementation, while you coordinate the project and give technical guidance. (essentially you are the principal engineer)

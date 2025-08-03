@@ -2,12 +2,12 @@
  * MarkItDown Worker Entry Point
  */
 
-import dotenv from 'dotenv';
+import { config as dotenvConfig } from 'dotenv';
 import { MarkItDownWorker } from './worker.js';
 import type { WorkerConfig } from './types.js';
 
 // Load environment variables
-dotenv.config();
+dotenvConfig();
 
 async function main() {
   const config: WorkerConfig = {

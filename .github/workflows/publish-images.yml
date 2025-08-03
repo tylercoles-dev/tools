@@ -1,0 +1,249 @@
+name: Publish Docker Images to GHCR
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (leave empty for branch name)'
+        required: false
+        default: ''
+      services:
+        description: 'Services to publish (comma-separated, or "all")'
+        required: false
+        default: 'all'
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: tylercoles-dev/mcp-tools
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: gateway
+            dockerfile: Dockerfile
+            target: gateway
+          - service: embeddings-worker
+            dockerfile: Dockerfile
+            target: embeddings-worker
+          - service: markitdown-worker
+            dockerfile: Dockerfile
+            target: markitdown-worker
+          - service: kanban-server
+            dockerfile: Dockerfile
+            target: kanban-server
+          - service: wiki-server
+            dockerfile: Dockerfile
+            target: wiki-server
+          - service: memory-server
+            dockerfile: Dockerfile
+            target: memory-server
+          - service: web
+            dockerfile: Dockerfile
+            target: web
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.event.inputs.tag }}" != "" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if service should be published
+        id: should_publish
+        run: |
+          SERVICES="${{ github.event.inputs.services || 'all' }}"
+          if [[ "$SERVICES" == "all" ]] || [[ "$SERVICES" == *"${{ matrix.service }}"* ]]; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract metadata
+        if: steps.should_publish.outputs.publish == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push
+        if: steps.should_publish.outputs.publish == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-compose-override:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.event.inputs.tag }}" != "" ]]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create docker-compose.ghcr.yml
+        run: |
+          cat > docker-compose.ghcr.yml << EOF
+          # Docker Compose override to use published GitHub Container Registry images
+          # Usage: docker-compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+          
+          version: '3.8'
+          
+          services:
+            gateway:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-gateway:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            embeddings-worker:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-embeddings-worker:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            markitdown-worker:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-markitdown-worker:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            kanban-server:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-kanban-server:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            wiki-server:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-wiki-server:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            memory-server:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-memory-server:${{ steps.tag.outputs.tag }}
+              build: null
+              
+            web:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web:${{ steps.tag.outputs.tag }}
+              build: null
+          EOF
+
+      - name: Upload docker-compose.ghcr.yml
+        uses: actions/upload-artifact@v3
+        with:
+          name: docker-compose-ghcr-${{ steps.tag.outputs.tag }}
+          path: docker-compose.ghcr.yml
+
+      - name: Create deployment instructions
+        run: |
+          cat > DEPLOYMENT_INSTRUCTIONS.md << EOF
+          # Deployment Instructions
+          
+          ## Using Pre-built Images from GitHub Container Registry
+          
+          ### Quick Deploy
+          \`\`\`bash
+          # Download the docker-compose.ghcr.yml file from this release
+          # Copy your .env configuration
+          cp .env.example .env
+          # Edit .env with your settings
+          
+          # Deploy using registry images
+          docker-compose -f docker-compose.yml -f docker-compose.ghcr.yml up -d
+          \`\`\`
+          
+          ### Manual Image Pull
+          \`\`\`bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-gateway:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-embeddings-worker:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-markitdown-worker:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-kanban-server:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-wiki-server:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-memory-server:${{ steps.tag.outputs.tag }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-web:${{ steps.tag.outputs.tag }}
+          \`\`\`
+          
+          ### Production Deployment
+          \`\`\`bash
+          # For production with scaling
+          docker-compose -f docker-compose.yml -f docker-compose.ghcr.yml -f docker-compose.prod.yml up -d
+          \`\`\`
+          
+          ## Available Images
+          
+          All images are available at: \`${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-SERVICE:${{ steps.tag.outputs.tag }}\`
+          
+          - gateway
+          - embeddings-worker
+          - markitdown-worker
+          - kanban-server
+          - wiki-server
+          - memory-server
+          - web
+          
+          ## System Requirements
+          
+          - Docker Engine 20.10+
+          - Docker Compose 2.0+
+          - 8GB+ RAM (4GB minimum)
+          - 10GB+ disk space
+          
+          ## Access Points
+          
+          After deployment, services will be available at:
+          - Web UI: http://localhost:80
+          - API Gateway: http://localhost:3000
+          - Kanban MCP: http://localhost:3002
+          - Wiki MCP: http://localhost:3003
+          - Memory MCP: http://localhost:3004
+          EOF
+
+      - name: Upload deployment instructions
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-instructions-${{ steps.tag.outputs.tag }}
+          path: DEPLOYMENT_INSTRUCTIONS.md

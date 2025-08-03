@@ -1,0 +1,42 @@
+# Docker Compose override for local development and scaling
+# This file is automatically loaded by docker-compose and overrides values from docker-compose.yml
+
+services:
+  # Override for local development - single replicas and relaxed resource limits
+  gateway:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  embeddings-worker:
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+
+  markitdown-worker:
+    deploy:
+      replicas: 1
+
+  kanban-server:
+    deploy:
+      replicas: 1
+
+  wiki-server:
+    deploy:
+      replicas: 1
+
+  memory-server:
+    deploy:
+      replicas: 1
+
+  web:
+    deploy:
+      replicas: 1
+
+# For production scaling, create docker-compose.prod.yml with higher replica counts

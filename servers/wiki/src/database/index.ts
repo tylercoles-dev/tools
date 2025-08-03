@@ -1,10 +1,8 @@
-import { Kysely, Generated, Selectable, Insertable, Updateable } from 'kysely';
+import { Kysely, Generated, Selectable, Insertable, Updateable, sql } from 'kysely';
+import { SqliteDialect, PostgresDialect } from 'kysely';
 import Database from 'better-sqlite3';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { Pool } from 'pg';
+// Database setup is now handled by the dedicated migration service
 
 // Database schema interfaces
 export interface Database {
@@ -14,7 +12,7 @@ export interface Database {
   tags: TagsTable;
   page_tags: PageTagsTable;
   page_links: PageLinksTable;
-  attachments: AttachmentsTable;
+  wiki_attachments: AttachmentsTable;
   page_history: PageHistoryTable;
   comments: CommentsTable;
 }
@@ -68,14 +66,17 @@ export interface PageLinksTable {
 }
 
 export interface AttachmentsTable {
-  id: Generated<number>;
+  id: string; // PostgreSQL uses TEXT PRIMARY KEY
   page_id: number;
   filename: string;
   original_name: string;
   mime_type: string | null;
-  file_size: number | null;
-  file_path: string;
-  created_at: Generated<string>;
+  size_bytes: number | null;
+  storage_path: string;
+  thumbnail_path: string | null;
+  description: string | null;
+  uploaded_by: string | null;
+  uploaded_at: Generated<string>;
 }
 
 export interface PageHistoryTable {
@@ -130,51 +131,64 @@ export interface DatabaseConfig {
 export class WikiDatabase {
   private db: Kysely<Database>;
   private sqliteDb?: Database.Database;
+  private dbType: string;
 
   constructor(private config: DatabaseConfig) {
-    if (config.type === 'sqlite') {
-      this.sqliteDb = new Database(config.filename || ':memory:');
-      // Import SqliteDialect dynamically to avoid issues
-      this.initializeSqlite();
-    } else {
-      throw new Error(`Database type ${config.type} not yet implemented`);
+    this.dbType = config.type;
+    let dialect;
+
+    switch (config.type) {
+      case 'sqlite':
+        this.sqliteDb = new Database(config.filename || ':memory:');
+        dialect = new SqliteDialect({
+          database: this.sqliteDb,
+        });
+        break;
+
+      case 'postgres':
+        if (config.connectionString) {
+          dialect = new PostgresDialect({
+            pool: new Pool({
+              connectionString: config.connectionString,
+            }),
+          });
+        } else {
+          dialect = new PostgresDialect({
+            pool: new Pool({
+              host: config.host,
+              port: config.port,
+              user: config.user,
+              password: config.password,
+              database: config.database,
+            }),
+          });
+        }
+        break;
+
+      default:
+        throw new Error(`Database type ${config.type} not yet implemented`);
     }
+
+    this.db = new Kysely<Database>({ dialect });
   }
 
-  private async initializeSqlite() {
-    const { SqliteDialect } = await import('kysely');
-    this.db = new Kysely<Database>({
-      dialect: new SqliteDialect({
-        database: this.sqliteDb!,
-      }),
-    });
-  }
 
   async initialize(): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
     }
 
+    // Database initialization is now handled by the dedicated migration service
+    // This method is kept for compatibility but performs no database setup
+    console.log('Wiki database initialization: Database migrations are handled by the migration service');
+    
+    // Test database connection to ensure it's available
     try {
-      const schemaPath = path.join(__dirname, 'schema.sql');
-      const schema = await fs.readFile(schemaPath, 'utf-8');
-      
-      // Split and execute SQL statements
-      const statements = schema
-        .split(';')
-        .map(stmt => stmt.trim())
-        .filter(stmt => stmt.length > 0);
-
-      for (const statement of statements) {
-        if (this.config.type === 'sqlite' && this.sqliteDb) {
-          this.sqliteDb.exec(statement);
-        }
-      }
-
-      console.log('✅ Wiki database schema initialized');
+      await this.db.selectFrom('pages').select('id').limit(1).execute();
+      console.log('✅ Wiki database connection verified successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize database schema:', error);
-      throw error;
+      console.error('❌ Wiki database connection failed. Ensure migration service has completed:', error);
+      throw new Error('Database not available. Migration service may not have completed successfully.');
     }
   }
 
@@ -343,9 +357,18 @@ export class WikiDatabase {
         .execute();
       
       return pages;
+    } else if (this.config.type === 'postgres') {
+      // Use PostgreSQL full-text search with search_vector
+      return await this.db
+        .selectFrom('pages')
+        .selectAll()
+        .where(sql`search_vector @@ to_tsquery('english', ${sql.lit(query)})`)
+        .orderBy(sql`ts_rank(search_vector, to_tsquery('english', ${sql.lit(query)}))`, 'desc')
+        .limit(limit)
+        .execute();
     }
     
-    // Fallback to LIKE search
+    // Fallback to LIKE search for other database types
     return await this.db
       .selectFrom('pages')
       .selectAll()

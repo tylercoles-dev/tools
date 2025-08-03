@@ -2,9 +2,9 @@
 
 import { MCPServer, LogLevel } from '@tylercoles/mcp-server';
 import { HttpTransport } from '@tylercoles/mcp-transport-http';
-import { KanbanService } from '@mcp-tools/core/kanban';
+import { KanbanService, KanbanDatabase } from '@mcp-tools/core/kanban';
 import { registerTools } from './tools/index.js';
-// WebSocket server import removed - not implemented yet
+import { KanbanWebSocketServer } from './websocket-server.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -30,10 +30,14 @@ const config = {
 };
 
 async function createKanbanServer() {
-  // Initialize kanban service
+  // Initialize kanban database and service
+  console.log('🔧 Initializing kanban database...');
+  const kanbanDatabase = new KanbanDatabase(config.database);
+  await kanbanDatabase.initialize();
+  console.log('✅ Kanban database initialized');
+
   console.log('🔧 Initializing kanban service...');
-  const kanbanService = new KanbanService(config.database);
-  await kanbanService.initialize();
+  const kanbanService = new KanbanService(kanbanDatabase);
   console.log('✅ Kanban service initialized');
 
   // Create MCP server with logging configuration
@@ -339,14 +343,14 @@ Use the kanban tools to analyze the current state and provide recommendations.`,
   const shutdown = async () => {
     console.log('\n🛑 Shutting down server...');
     wsServer.close();
-    await kanbanService.shutdown();
+    await kanbanDatabase.close();
     process.exit(0);
   };
 
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  return { server, kanbanService, wsServer };
+  return { server, kanbanService, kanbanDatabase, wsServer };
 }
 
 async function main() {
@@ -356,7 +360,7 @@ async function main() {
     console.log(`🌐 HTTP Server: http://${config.host}:${config.port}`);
     console.log(`🔌 WebSocket Server: ws://${config.host}:${config.wsPort}`);
 
-    const { server, kanbanService, wsServer } = await createKanbanServer();
+    const { server, kanbanService, kanbanDatabase, wsServer } = await createKanbanServer();
 
     console.log('✅ Kanban Board MCP Server is running!');
     console.log('\n📚 Available endpoints:');

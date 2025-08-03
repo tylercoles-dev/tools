@@ -5,11 +5,7 @@ import { MysqlDialect } from 'kysely';
 import { default as SQLiteDb } from 'better-sqlite3';
 import { Pool } from 'pg';
 import { createPool } from 'mysql2';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Database setup is now handled by the dedicated migration service
 
 // Database schema types
 export interface Board {
@@ -146,46 +142,17 @@ export class KanbanDatabase {
   }
 
   async initialize(): Promise<void> {
-    // Read and execute schema - use database-specific schema if available
-    let schemaPath: string;
-    if (this.dbType === 'postgres') {
-      schemaPath = path.join(__dirname, 'schema.postgres.sql');
-    } else if (this.dbType === 'mysql') {
-      schemaPath = path.join(__dirname, 'schema.mysql.sql');
-    } else {
-      schemaPath = path.join(__dirname, 'schema.sql');
-    }
+    // Database initialization is now handled by the dedicated migration service
+    // This method is kept for compatibility but performs no database setup
+    console.log('Kanban database initialization: Database migrations are handled by the migration service');
     
-    const schema = fs.readFileSync(schemaPath, 'utf-8');
-
-    // Split by statements and execute each
-    const statements = schema
-      .split(';')
-      .map(s => s.trim())
-      .filter(s => s.length > 0 && !s.match(/^\s*$/))
-      .filter(s => {
-        // Filter out pure comment blocks, but keep statements that contain SQL
-        const lines = s.split('\n').filter(line => line.trim().length > 0);
-        return lines.some(line => !line.trim().startsWith('--') && line.trim().length > 0);
-      });
-
-    console.log(`Found ${statements.length} SQL statements to execute`);
-    statements.forEach((stmt, idx) => {
-      console.log(`Statement ${idx + 1}: ${stmt.substring(0, 100)}...`);
-    });
-    
-    for (let i = 0; i < statements.length; i++) {
-      const statement = statements[i];
-      if (statement.length > 0) {
-        console.log(`Executing SQL ${i + 1}/${statements.length}: ${statement.substring(0, 50)}...`);
-        try {
-          await sql`${sql.raw(statement)}`.execute(this.db);
-        } catch (error) {
-          console.error(`Error executing statement ${i + 1}:`, error);
-          console.error(`Statement was: ${statement}`);
-          throw error;
-        }
-      }
+    // Test database connection to ensure it's available
+    try {
+      await this.db.selectFrom('boards').select('id').limit(1).execute();
+      console.log('Kanban database connection verified successfully');
+    } catch (error) {
+      console.error('Kanban database connection failed. Ensure migration service has completed:', error);
+      throw new Error('Database not available. Migration service may not have completed successfully.');
     }
   }
 

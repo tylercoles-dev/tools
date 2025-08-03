@@ -643,3 +643,33 @@ export function useWikiMutations() {
     deletePage,
   };
 }
+
+// General useApi hook that components are trying to import
+export function useApi() {
+  return {
+    kanban: {
+      useBoards: useKanbanBoards,
+      useBoard: useKanbanBoard,
+      useMutations: useKanbanMutations,
+      useStats: useKanbanStats,
+      useSearch: useCardSearch,
+    },
+    memory: {
+      useMemories,
+      useMemory,
+      useSearch: useMemorySearch,
+      useMutations: useMemoryMutations,
+    },
+    wiki: {
+      usePages: useWikiPages,
+      usePage: useWikiPage,
+      useMutations: useWikiMutations,
+    },
+    auth: {
+      useAuth,
+    },
+    health: {
+      useHealth,
+    },
+  };
+}
