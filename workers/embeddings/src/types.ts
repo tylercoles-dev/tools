@@ -83,6 +83,9 @@ export interface EmbeddingProvider {
 
 // Embedding-specific error extending base worker error
 export class EmbeddingProviderError extends WorkerError {
+  public readonly message: string;
+  public readonly name = 'EmbeddingProviderError';
+
   constructor(
     message: string,
     public provider: string,
@@ -91,6 +94,6 @@ export class EmbeddingProviderError extends WorkerError {
     originalError?: Error
   ) {
     super(message, 'EMBEDDING_PROVIDER_ERROR', workerId, originalError);
-    this.name = 'EmbeddingProviderError';
+    this.message = message;
   }
 }

@@ -22,12 +22,16 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@embeddings/*": ["./src/*"]
+      "@embeddings/*": ["./src/*"],
+      "@mcp-tools/core": ["./core/src/index.ts"],
+      "@mcp-tools/core/*": ["./core/src/*"],
+      "@shared/*": ["./core/src/shared/*"],
+      "@types/*": ["./core/src/shared/types/*"]
     }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.spec.ts"],
   "references": [
-    { "path": "./core" }
+    { "path": "../../core" }
   ]
 }

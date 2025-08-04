@@ -1,47 +1,58 @@
 # Embeddings Worker Dockerfile
 FROM node:22-alpine AS base
 
-RUN apk add --no-cache libc6-compat
+# Install build dependencies (no PostgreSQL needed for embeddings worker)
+RUN apk add --no-cache \
+    libc6-compat \
+    python3 \
+    make \
+    g++ \
+    && ln -sf python3 /usr/bin/python
+
 WORKDIR /app
 
-# Copy package files and install ALL dependencies (including dev) for build
-COPY workers/embeddings/package*.json ./
-RUN npm install
-
-# Copy core dependency (built from root context)
-COPY core/dist ./core/dist
-COPY core/src ./core/src
+# Build core package with all dependencies for build stage
 COPY core/package*.json ./core/
 COPY core/tsconfig.json ./core/
+COPY core/tsup.config.ts ./core/
+RUN cd core && npm install --ignore-scripts
 
-# Install core as a local package to fix dependency resolution
-RUN cd core && npm install && cd ..
-RUN npm install ./core
+# Copy core source and build
+COPY core/src ./core/src
+RUN cd core && npm run build
 
-# Copy root tsconfig.json for project references
-COPY tsconfig.json ../tsconfig.json
+# Copy embeddings worker package files and install all dependencies for build  
+COPY workers/embeddings/package*.json ./
+COPY workers/embeddings/tsup.config.ts ./
+RUN npm install --ignore-scripts
+
+# Copy root tsconfig.json to set up proper path mappings
+COPY tsconfig.json ./tsconfig.json
 
 # Copy source code
 COPY workers/embeddings/src ./src
 COPY workers/embeddings/tsconfig*.json ./
-COPY workers/embeddings/tsup.config.* ./
 
-# Build the worker
+# Build the worker using tsup
 RUN npm run build
 
 # Production stage
 FROM node:22-alpine AS production
+
+# Install minimal runtime dependencies
+RUN apk add --no-cache libc6-compat
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 worker
 
 WORKDIR /app
 
-# Copy built application
+# Install embeddings worker dependencies (production only)
+COPY workers/embeddings/package*.json ./
+RUN npm install --production --ignore-scripts
+
+# Copy built application (now includes all dependencies bundled by tsup)
 COPY --from=base --chown=worker:nodejs /app/dist ./dist
-COPY --from=base --chown=worker:nodejs /app/package*.json ./
-COPY --from=base --chown=worker:nodejs /app/node_modules ./node_modules
-COPY --from=base --chown=worker:nodejs /app/core ./core
 
 USER worker
 

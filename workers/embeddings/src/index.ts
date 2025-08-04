@@ -34,7 +34,7 @@ async function main() {
     // Keep the process running
     console.log('✅ Embeddings worker is running. Press Ctrl+C to stop.');
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Failed to start embeddings worker:', error);
 
     if (error instanceof EmbeddingProviderError) {
@@ -48,7 +48,7 @@ async function main() {
     } else if (error instanceof Error) {
       console.error('Error:', error.message);
     } else {
-      console.error('Unknown error:', error);
+      console.error('Unknown error:', String(error));
     }
 
     process.exit(1);

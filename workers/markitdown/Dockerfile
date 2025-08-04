@@ -1,7 +1,7 @@
-# Markitdown Worker Dockerfile
+# Markitdown Worker Dockerfile  
 FROM node:22-alpine AS base
 
-# Install Python and required packages for MarkItDown
+# Install Python and Node.js build dependencies for MarkItDown
 RUN apk add --no-cache \
     python3 \
     py3-pip \
@@ -10,31 +10,35 @@ RUN apk add --no-cache \
     musl-dev \
     libffi-dev \
     openssl-dev \
-    libc6-compat
+    libc6-compat \
+    make \
+    g++ \
+    && ln -sf python3 /usr/bin/python
 
-# Create and use virtual environment for Python packages
+# Create and use virtual environment for Python packages  
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --upgrade pip && pip install markitdown
 
 WORKDIR /app
 
-# Copy package files and install ALL dependencies (including dev) for build
-COPY workers/markitdown/package*.json ./
-RUN npm install
-
-# Copy core dependency (built from root context)
-COPY core/dist ./core/dist
-COPY core/src ./core/src
+# Build core package with all dependencies for build stage
 COPY core/package*.json ./core/
 COPY core/tsconfig.json ./core/
+COPY core/tsup.config.ts ./core/
+RUN cd core && npm install --ignore-scripts
 
-# Install core as a local package to fix dependency resolution
-RUN cd core && npm install && cd ..
-RUN npm install ./core
+# Copy core source and build
+COPY core/src ./core/src
+RUN cd core && npm run build
 
-# Copy root tsconfig.json for project references
-COPY tsconfig.json ../tsconfig.json
+# Copy markitdown worker package files and install all dependencies for build
+COPY workers/markitdown/package*.json ./
+COPY workers/markitdown/tsup.config.ts ./
+RUN npm install --ignore-scripts
+
+# Copy root tsconfig.json to set up proper path mappings
+COPY tsconfig.json ./tsconfig.json
 
 # Copy source code
 COPY workers/markitdown/src ./src
@@ -47,8 +51,13 @@ RUN npm run build
 # Production stage  
 FROM node:22-alpine AS production
 
-# Install Python runtime and recreate virtual environment
-RUN apk add --no-cache python3 py3-pip
+# Install Python runtime and minimal dependencies
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    libc6-compat
+
+# Create virtual environment and install markitdown
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --upgrade pip && pip install markitdown
@@ -58,11 +67,12 @@ RUN adduser --system --uid 1001 worker
 
 WORKDIR /app
 
-# Copy built application
+# Install markitdown worker dependencies (production only)
+COPY workers/markitdown/package*.json ./
+RUN npm install --production --ignore-scripts
+
+# Copy built application (now includes all dependencies bundled by tsup)
 COPY --from=base --chown=worker:nodejs /app/dist ./dist
-COPY --from=base --chown=worker:nodejs /app/package*.json ./
-COPY --from=base --chown=worker:nodejs /app/node_modules ./node_modules
-COPY --from=base --chown=worker:nodejs /app/core ./core
 
 # Create temp directory for file processing
 RUN mkdir -p /tmp/markitdown && chown worker:nodejs /tmp/markitdown
