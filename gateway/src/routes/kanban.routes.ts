@@ -51,6 +51,7 @@ router.get('/boards', [
 // POST /api/kanban/boards - Create board
 router.post('/boards', [
   body('name').notEmpty().isLength({ min: 1, max: 255 }),
+  body('slug').optional().isLength({ min: 1, max: 255 }),
   body('description').optional().isString(),
   body('color').optional().matches(/^#[0-9A-Fa-f]{6}$/),
   validateRequest
@@ -59,6 +60,7 @@ router.post('/boards', [
   
   const board = await kanbanService.createBoard({
     name: req.body.name,
+    slug: req.body.slug,
     description: req.body.description,
     color: req.body.color || '#6366f1'
   });
@@ -88,11 +90,33 @@ router.get('/boards/:id', [
   }
 }));
 
+// GET /api/kanban/boards/slug/:slug - Get board by slug with columns and cards
+router.get('/boards/slug/:slug', [
+  param('slug').notEmpty().isSlug(),
+  query('include_archived').optional().isBoolean().toBoolean(),
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const board = await kanbanService.getBoardBySlug(req.params.slug);
+    
+    if (!board) {
+      return res.status(404).error('NOT_FOUND', 'Board not found');
+    }
+    
+    res.success(board);
+  } catch (error) {
+    return res.status(404).error('NOT_FOUND', 'Board not found');
+  }
+}));
+
 // POST /api/kanban/cards - Create card
 router.post('/cards', [
   body('board_id').notEmpty(),
   body('column_id').notEmpty(),
   body('title').notEmpty().isLength({ min: 1, max: 255 }),
+  body('slug').optional().isLength({ min: 1, max: 255 }),
   body('description').optional().isString(),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
   body('assigned_to').optional().isString(),
@@ -111,6 +135,7 @@ router.post('/cards', [
       board_id: boardId,
       column_position: columnId,
       title: req.body.title,
+      slug: req.body.slug,
       description: req.body.description,
       priority: req.body.priority || 'medium',
       assigned_to: req.body.assigned_to,
@@ -201,6 +226,27 @@ router.delete('/cards/:id', [
     }
     
     res.status(204).send();
+  } catch (error) {
+    return res.status(404).error('NOT_FOUND', 'Card not found');
+  }
+}));
+
+// GET /api/kanban/boards/slug/:boardSlug/cards/:cardSlug - Get card by slug
+router.get('/boards/slug/:boardSlug/cards/:cardSlug', [
+  param('boardSlug').notEmpty().isSlug(),
+  param('cardSlug').notEmpty().isSlug(),
+  validateRequest
+], asyncHandler(async (req: any, res: any) => {
+  const kanbanService: KanbanService = req.app.locals.kanbanService;
+  
+  try {
+    const card = await kanbanService.getCardBySlug(req.params.boardSlug, req.params.cardSlug);
+    
+    if (!card) {
+      return res.status(404).error('NOT_FOUND', 'Card not found');
+    }
+    
+    res.success(card);
   } catch (error) {
     return res.status(404).error('NOT_FOUND', 'Card not found');
   }

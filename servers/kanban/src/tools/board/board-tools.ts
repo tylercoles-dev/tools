@@ -3,6 +3,7 @@ import {
   CreateBoardSchema,
   UpdateBoardSchema,
   BoardIdSchema,
+  BoardSlugSchema,
   UpdateBoardWithIdSchema,
   NotFoundError,
   ValidationError,
@@ -164,6 +165,60 @@ export const registerDeleteBoardTool = (db: KanbanDatabase): ToolModule => ({
       }
 
       return createSuccessResult(`✅ Successfully deleted board (ID: ${board_id})`);
+    } catch (error) {
+      return createErrorResult(error);
+    }
+  }
+});
+
+export const registerGetBoardBySlugTool = (db: KanbanDatabase): ToolModule => ({
+  name: 'get_board_by_slug',
+  config: {
+    title: 'Get Board by Slug',
+    description: 'Retrieve detailed information about a specific board using its slug',
+    inputSchema: BoardSlugSchema,
+  },
+  handler: async (args: any): Promise<ToolResult> => {
+    try {
+      const { slug } = args;
+      const boardData = await db.getBoardBySlug(slug);
+      
+      if (!boardData) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Board with slug "${slug}" not found`,
+            },
+          ],
+        };
+      }
+
+      const { board, columns } = boardData;
+      const totalCards = columns.reduce((sum, col) => sum + col.cards.length, 0);
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `📋 **${board.name}** (${board.slug})\n\n` +
+                  `${board.description || 'No description'}\n\n` +
+                  `📊 **Overview:**\n` +
+                  `• Columns: ${columns.length}\n` +
+                  `• Total Cards: ${totalCards}\n` +
+                  `• Created: ${new Date(board.created_at).toLocaleDateString()}\n\n` +
+                  `🏛️ **Columns:**\n${columns
+                    .map(
+                      (col) =>
+                        `• **${col.name}** (${col.cards.length} cards)\n${col.cards
+                          .map((card) => `  - ${card.title} (${card.slug}) [${card.priority}]`)
+                          .join('\n')}`
+                    )
+                    .join('\n\n')}`,
+          },
+        ],
+        structuredContent: { board, columns },
+      };
     } catch (error) {
       return createErrorResult(error);
     }

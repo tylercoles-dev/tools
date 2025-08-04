@@ -12,6 +12,7 @@ export type Priority = z.infer<typeof PrioritySchema>;
 export interface Board {
   id: string;
   name: string;
+  slug: string;
   description: string | null;
   color: string;
   created_at: string;
@@ -33,6 +34,7 @@ export interface Card {
   board_id: string;
   column_id: string;
   title: string;
+  slug: string;
   description: string | null;
   position: number;
   priority: Priority;
@@ -162,6 +164,7 @@ export interface TimeEntry {
 // Input schemas
 export const CreateBoardSchema = z.object({
   name: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255).optional(), // Optional, will be auto-generated if not provided
   description: z.string().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
 });
@@ -183,6 +186,7 @@ export const CreateCardSchema = z.object({
   column_name: z.string().min(1).max(255).optional(),
   column_position: z.number().int().min(0).optional(),
   title: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255).optional(), // Optional, will be auto-generated if not provided
   description: z.string().optional(),
   position: z.number().int().min(0).default(0),
   priority: PrioritySchema.default('medium'),

@@ -4,6 +4,7 @@ import {
   UpdateCardSchema,
   MoveCardSchema,
   CardIdSchema,
+  CardSlugSchema,
   UpdateCardWithIdSchema,
   NotFoundError,
   ValidationError,
@@ -191,6 +192,58 @@ export const registerDeleteCardTool = (db: KanbanDatabase, wsServer: KanbanWebSo
       }
 
       return createSuccessResult(`✅ Successfully deleted card (ID: ${card_id})`);
+    } catch (error) {
+      return createErrorResult(error);
+    }
+  }
+});
+
+export const registerGetCardBySlugTool = (db: KanbanDatabase): ToolModule => ({
+  name: 'get_card_by_slug',
+  config: {
+    title: 'Get Card by Slug',
+    description: 'Retrieve detailed information about a specific card using board slug and card slug',
+    inputSchema: CardSlugSchema,
+  },
+  handler: async (args: any): Promise<ToolResult> => {
+    try {
+      const { boardSlug, cardSlug } = args;
+      const cardData = await db.getCardBySlug(boardSlug, cardSlug);
+      
+      if (!cardData) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Card with slug "${cardSlug}" not found in board "${boardSlug}"`,
+            },
+          ],
+        };
+      }
+
+      const { card, tags } = cardData;
+      const dueDateText = card.due_date ? `📅 Due: ${new Date(card.due_date).toLocaleDateString()}` : '';
+      const assignedText = card.assigned_to ? `👤 Assigned: ${card.assigned_to}` : '';
+      const tagsText = tags.length > 0 ? `🏷️ Tags: ${tags.map(tag => tag.name).join(', ')}` : '';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🎯 **${card.title}** (${card.slug})\\n\\n` +
+                  `${card.description || 'No description'}\\n\\n` +
+                  `📊 **Details:**\\n` +
+                  `• Priority: ${card.priority}\\n` +
+                  `• Position: ${card.position}\\n` +
+                  `• Created: ${new Date(card.created_at).toLocaleDateString()}\\n` +
+                  `• Updated: ${new Date(card.updated_at).toLocaleDateString()}\\n` +
+                  (dueDateText ? `• ${dueDateText}\\n` : '') +
+                  (assignedText ? `• ${assignedText}\\n` : '') +
+                  (tagsText ? `• ${tagsText}` : ''),
+          },
+        ],
+        structuredContent: { card, tags },
+      };
     } catch (error) {
       return createErrorResult(error);
     }

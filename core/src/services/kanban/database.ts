@@ -10,6 +10,7 @@ import type { DatabaseConfig } from '../../utils/database.js';
 interface BoardTable {
   id: Generated<string>;
   name: string;
+  slug: string;
   description: string | null;
   color: string;
   created_at: string;
@@ -31,6 +32,7 @@ interface CardTable {
   board_id: string;
   column_id: string;
   title: string;
+  slug: string;
   description: string | null;
   position: number;
   priority: 'low' | 'medium' | 'high' | 'urgent';

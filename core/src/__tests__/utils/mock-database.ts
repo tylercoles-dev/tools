@@ -98,6 +98,7 @@ export const mockTestData = {
   board: {
     id: '550e8400-e29b-41d4-a716-446655440000',
     name: 'Test Board',
+    slug: 'test-board',
     description: 'Test board description',
     color: '#6366f1',
     created_at: '2024-01-01T00:00:00.000Z',
@@ -119,6 +120,7 @@ export const mockTestData = {
     board_id: '550e8400-e29b-41d4-a716-446655440000',
     column_id: '550e8400-e29b-41d4-a716-446655440001',
     title: 'Test Card',
+    slug: 'test-card',
     description: 'Test card description',
     position: 0,
     priority: 'medium' as const,
@@ -150,6 +152,60 @@ export const mockTestData = {
     { name: 'In Progress', position: 1, color: '#f59e0b' },
     { name: 'Review', position: 2, color: '#3b82f6' },
     { name: 'Done', position: 3, color: '#10b981' }
+  ],
+
+  // Additional test boards with different slug patterns
+  boards: [
+    {
+      id: '550e8400-e29b-41d4-a716-446655440005',
+      name: 'My Project Board',
+      slug: 'my-project-board',
+      description: 'Main development board',
+      color: '#6366f1',
+      created_at: '2024-01-01T00:00:00.000Z',
+      updated_at: '2024-01-01T00:00:00.000Z',
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440006',
+      name: 'Bug Tracking & Fixes',
+      slug: 'bug-tracking-fixes',
+      description: 'Board for tracking and fixing bugs',
+      color: '#dc2626',
+      created_at: '2024-01-02T00:00:00.000Z',
+      updated_at: '2024-01-02T00:00:00.000Z',
+    }
+  ],
+
+  // Additional test cards with different slug patterns
+  cards: [
+    {
+      id: '550e8400-e29b-41d4-a716-446655440007',
+      board_id: '550e8400-e29b-41d4-a716-446655440005',
+      column_id: '550e8400-e29b-41d4-a716-446655440001',
+      title: 'Fix Login Bug',
+      slug: 'fix-login-bug',
+      description: 'Users cannot log in with special characters',
+      position: 0,
+      priority: 'high' as const,
+      assigned_to: 'john.doe@example.com',
+      due_date: '2024-12-31',
+      created_at: '2024-01-01T00:00:00.000Z',
+      updated_at: '2024-01-01T00:00:00.000Z',
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440008',
+      board_id: '550e8400-e29b-41d4-a716-446655440005',
+      column_id: '550e8400-e29b-41d4-a716-446655440001',
+      title: 'Implement User Dashboard (Phase 1)',
+      slug: 'implement-user-dashboard-phase-1',
+      description: 'Create the main dashboard interface',
+      position: 1,
+      priority: 'medium' as const,
+      assigned_to: 'jane.smith@example.com',
+      due_date: null,
+      created_at: '2024-01-02T00:00:00.000Z',
+      updated_at: '2024-01-02T00:00:00.000Z',
+    }
   ],
 };
 

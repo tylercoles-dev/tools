@@ -31,6 +31,7 @@ export const initialSchemaComplete: Migration = {
       .createTable('boards')
       .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
       .addColumn('name', 'varchar(255)', (col) => col.notNull())
+      .addColumn('slug', 'varchar(255)', (col) => col.notNull().unique())
       .addColumn('description', 'text')
       .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
       .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
@@ -56,6 +57,7 @@ export const initialSchemaComplete: Migration = {
       .addColumn('board_id', 'uuid', (col) => col.notNull())
       .addColumn('column_id', 'uuid', (col) => col.notNull())
       .addColumn('title', 'varchar(255)', (col) => col.notNull())
+      .addColumn('slug', 'varchar(255)', (col) => col.notNull())
       .addColumn('description', 'text')
       .addColumn('position', 'integer', (col) => col.notNull().defaultTo(0))
       .addColumn('priority', 'varchar(20)', (col) => col.defaultTo('medium'))
@@ -67,6 +69,7 @@ export const initialSchemaComplete: Migration = {
       .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
       .addForeignKeyConstraint('fk_cards_board', ['board_id'], 'boards', ['id'], (cb) => cb.onDelete('cascade'))
       .addForeignKeyConstraint('fk_cards_column', ['column_id'], 'columns', ['id'], (cb) => cb.onDelete('cascade'))
+      .addUniqueConstraint('uk_cards_slug_board', ['board_id', 'slug'])
       .execute();
 
     // Tags table (kanban tags)
@@ -624,6 +627,18 @@ export const initialSchemaComplete: Migration = {
     
     // Kanban indexes
     await db.schema
+      .createIndex('idx_boards_slug')
+      .on('boards')
+      .column('slug')
+      .execute();
+
+    await db.schema
+      .createIndex('idx_cards_slug')
+      .on('cards')
+      .column('slug')
+      .execute();
+
+    await db.schema
       .createIndex('idx_cards_board_column')
       .on('cards')
       .columns(['board_id', 'column_id'])
@@ -735,7 +750,9 @@ export const initialSchemaComplete: Migration = {
       'idx_pages_slug',
       'idx_card_activities_board_created',
       'idx_cards_assigned_to',
-      'idx_cards_board_column'
+      'idx_cards_board_column',
+      'idx_cards_slug',
+      'idx_boards_slug'
     ];
 
     for (const index of indexes) {

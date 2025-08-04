@@ -15,11 +15,21 @@ export type CardLinkType = z.infer<typeof CardLinkTypeSchema>;
 // Board schemas
 export const CreateBoardSchema = z.object({
   name: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
 });
 
 export const UpdateBoardSchema = CreateBoardSchema.partial();
+
+export const BoardSlugSchema = z.object({
+  slug: z.string().min(1).max(255),
+});
+
+export const CardSlugSchema = z.object({
+  boardSlug: z.string().min(1).max(255),
+  cardSlug: z.string().min(1).max(255),
+});
 
 export type CreateBoardInput = z.infer<typeof CreateBoardSchema>;
 export type UpdateBoardInput = z.infer<typeof UpdateBoardSchema>;
@@ -43,6 +53,7 @@ export const CreateCardSchema = z.object({
   column_name: z.string().min(1).max(255).optional(),
   column_position: z.number().int().min(0).optional(),
   title: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
   position: z.number().int().min(0).default(0),
   priority: PrioritySchema.default('medium'),

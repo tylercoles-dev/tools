@@ -3,8 +3,8 @@ import { KanbanService } from '@mcp-tools/core/kanban';
 import { KanbanWebSocketServer } from '../websocket-server.js';
 import { registerSearchCardsTool } from './analytics/search-cards.js';
 import { registerGetStatsTool } from './analytics/get-stats.js';
-import { registerCreateBoardTool, registerDeleteBoardTool, registerGetBoardsTool, registerGetBoardTool, registerUpdateBoardTool } from './board/board-tools.js';
-import { registerCreateCardTool, registerDeleteCardTool, registerMoveCardTool, registerUpdateCardTool } from './card/card-tools.js';
+import { registerCreateBoardTool, registerDeleteBoardTool, registerGetBoardsTool, registerGetBoardTool, registerUpdateBoardTool, registerGetBoardBySlugTool } from './board/board-tools.js';
+import { registerCreateCardTool, registerDeleteCardTool, registerMoveCardTool, registerUpdateCardTool, registerGetCardBySlugTool } from './card/card-tools.js';
 import { registerCreateColumnTool, registerDeleteColumnTool, registerUpdateColumnTool } from './column/column-tools.js';
 import { registerAddCommentTool, registerDeleteCommentTool, registerGetCommentsTool } from './comment/comment-tools.js';
 import { registerAddCardTagTool, registerCreateTagTool, registerGetTagsTool, registerRemoveCardTagTool } from './tag/tag-tools.js';
@@ -70,6 +70,7 @@ export const registerTools = (server: MCPServer, kanbanService: KanbanService, w
 
   server.registerTool(registerGetBoardsTool(db));
   server.registerTool(registerGetBoardTool(db));
+  server.registerTool(registerGetBoardBySlugTool(db));
   server.registerTool(registerCreateBoardTool(db, wsServer));
   server.registerTool(registerUpdateBoardTool(db));
   server.registerTool(registerDeleteBoardTool(db));
@@ -78,6 +79,7 @@ export const registerTools = (server: MCPServer, kanbanService: KanbanService, w
   server.registerTool(registerUpdateCardTool(db, wsServer));
   server.registerTool(registerMoveCardTool(db, wsServer));
   server.registerTool(registerDeleteCardTool(db, wsServer));
+  server.registerTool(registerGetCardBySlugTool(db));
 
   server.registerTool(registerCreateColumnTool(db, wsServer));
   server.registerTool(registerUpdateColumnTool(db, wsServer));
@@ -145,6 +147,7 @@ function createDatabaseAdapter(service: KanbanService): any {
   return {
     getBoards: () => service.getAllBoards(),
     getBoardById: (id: number) => service.getBoardById(id),
+    getBoardBySlug: (slug: string) => service.getBoardBySlug(slug),
     createBoard: (data: any) => service.createBoard(data),
     updateBoard: (id: number, data: any) => service.updateBoard(id, data),
     deleteBoard: (id: number) => service.deleteBoard(id),
@@ -158,6 +161,7 @@ function createDatabaseAdapter(service: KanbanService): any {
     moveCard: (id: number, data: any) => service.moveCard(id, data),
     deleteCard: (id: number) => service.deleteCard(id),
     getCardById: (id: number) => service.getCardById(id),
+    getCardBySlug: (boardSlug: string, cardSlug: string) => service.getCardBySlug(boardSlug, cardSlug),
     searchCards: (query: string) => service.searchCards({ query }),
     getRecentlyUpdatedCards: () => { throw new Error('Not implemented in service yet'); },
     getCardComments: (cardId: number) => service.getCardComments(cardId),

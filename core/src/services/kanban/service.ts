@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { sql } from 'kysely';
+import slugify from 'slugify';
 import type { KanbanDatabase } from './database.js';
 import type {
   Board,
@@ -36,6 +37,69 @@ import {
 export class KanbanService {
   constructor(private database: KanbanDatabase) {}
 
+  // Slug generation utilities
+  private generateBoardSlug(name: string): string {
+    return slugify(name, {
+      lower: true,
+      strict: true,
+      remove: /[*+~.()'"!:@]/g,
+    });
+  }
+
+  private generateCardSlug(boardId: string, title: string): string {
+    const baseSlug = slugify(title, {
+      lower: true,
+      strict: true,
+      remove: /[*+~.()'"!:@]/g,
+    });
+    
+    // For cards, we'll just use the title slug since uniqueness is enforced at DB level
+    return baseSlug;
+  }
+
+  private async ensureUniqueBoardSlug(baseSlug: string, excludeId?: string): Promise<string> {
+    let slug = baseSlug;
+    let counter = 1;
+    
+    while (true) {
+      const existing = await this.database.kysely
+        .selectFrom('boards')
+        .select('id')
+        .where('slug', '=', slug)
+        .where((eb) => excludeId ? eb('id', '!=', excludeId) : eb.lit(true))
+        .executeTakeFirst();
+        
+      if (!existing) {
+        return slug;
+      }
+      
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+  }
+
+  private async ensureUniqueCardSlug(boardId: string, baseSlug: string, excludeId?: string): Promise<string> {
+    let slug = baseSlug;
+    let counter = 1;
+    
+    while (true) {
+      const existing = await this.database.kysely
+        .selectFrom('cards')
+        .select('id')
+        .where('board_id', '=', boardId)
+        .where('slug', '=', slug)
+        .where((eb) => excludeId ? eb('id', '!=', excludeId) : eb.lit(true))
+        .executeTakeFirst();
+        
+      if (!existing) {
+        return slug;
+      }
+      
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+  }
+
   // Board operations
   async getAllBoards(): Promise<Board[]> {
     return await this.database.kysely
@@ -43,6 +107,41 @@ export class KanbanService {
       .selectAll()
       .orderBy('created_at', 'desc')
       .execute();
+  }
+
+  async getBoardBySlug(slug: string): Promise<BoardWithColumns | null> {
+    const board = await this.database.kysely
+      .selectFrom('boards')
+      .selectAll()
+      .where('slug', '=', slug)
+      .executeTakeFirst();
+
+    if (!board) {
+      return null;
+    }
+
+    // Get columns with cards
+    const columns = await this.database.kysely
+      .selectFrom('columns')
+      .selectAll()
+      .where('board_id', '=', board.id)
+      .orderBy('position', 'asc')
+      .execute();
+
+    const columnsWithCards: ColumnWithCards[] = [];
+
+    for (const column of columns) {
+      const cards = await this.getCardsByColumnId(column.id);
+      columnsWithCards.push({
+        ...column,
+        cards
+      });
+    }
+
+    return {
+      ...board,
+      columns: columnsWithCards
+    };
   }
 
   async getBoardById(id: string): Promise<BoardWithColumns | null> {
@@ -67,11 +166,16 @@ export class KanbanService {
   async createBoard(input: CreateBoardInput): Promise<Board> {
     const now = new Date().toISOString();
     
+    // Generate slug
+    const baseSlug = input.slug || this.generateBoardSlug(input.name);
+    const slug = await this.ensureUniqueBoardSlug(baseSlug);
+    
     const result = await this.database.kysely
       .insertInto('boards')
       .values({
         id: randomUUID(),
         name: input.name,
+        slug,
         description: input.description || null,
         color: input.color || '#6366f1',
         created_at: now,
@@ -98,13 +202,19 @@ export class KanbanService {
     }
 
     const now = new Date().toISOString();
+    
+    // Handle slug update if name changed
+    let updateData = { ...input, updated_at: now };
+    if (input.name && input.name !== board.name) {
+      const baseSlug = input.slug || this.generateBoardSlug(input.name);
+      updateData.slug = await this.ensureUniqueBoardSlug(baseSlug, id);
+    } else if (input.slug) {
+      updateData.slug = await this.ensureUniqueBoardSlug(input.slug, id);
+    }
 
     return await this.database.kysely
       .updateTable('boards')
-      .set({
-        ...input,
-        updated_at: now
-      })
+      .set(updateData)
       .where('id', '=', id)
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -197,6 +307,26 @@ export class KanbanService {
   }
 
   // Card operations
+  async getCardBySlug(boardSlug: string, cardSlug: string): Promise<CardWithTags | null> {
+    const card = await this.database.kysely
+      .selectFrom('cards')
+      .innerJoin('boards', 'cards.board_id', 'boards.id')
+      .selectAll('cards')
+      .where('boards.slug', '=', boardSlug)
+      .where('cards.slug', '=', cardSlug)
+      .executeTakeFirst();
+
+    if (!card) {
+      return null;
+    }
+
+    const tags = await this.getCardTags(card.id);
+    return {
+      ...card,
+      tags
+    };
+  }
+
   async getCardsByColumnId(columnId: string): Promise<CardWithTags[]> {
     const cards = await this.database.kysely
       .selectFrom('cards')
@@ -273,6 +403,10 @@ export class KanbanService {
     }
 
     const now = new Date().toISOString();
+    
+    // Generate slug
+    const baseSlug = input.slug || this.generateCardSlug(input.board_id, input.title);
+    const slug = await this.ensureUniqueCardSlug(input.board_id, baseSlug);
 
     const card = await this.database.kysely
       .insertInto('cards')
@@ -281,6 +415,7 @@ export class KanbanService {
         board_id: input.board_id,
         column_id: columnId,
         title: input.title,
+        slug,
         description: input.description || null,
         position: input.position || 0,
         priority: input.priority || 'medium',
@@ -323,13 +458,19 @@ export class KanbanService {
     }
 
     const now = new Date().toISOString();
+    
+    // Handle slug update if title changed
+    let updateData = { ...input, updated_at: now };
+    if (input.title && input.title !== card.title) {
+      const baseSlug = input.slug || this.generateCardSlug(card.board_id, input.title);
+      updateData.slug = await this.ensureUniqueCardSlug(card.board_id, baseSlug, id);
+    } else if (input.slug) {
+      updateData.slug = await this.ensureUniqueCardSlug(card.board_id, input.slug, id);
+    }
 
     const updatedCard = await this.database.kysely
       .updateTable('cards')
-      .set({
-        ...input,
-        updated_at: now
-      })
+      .set(updateData)
       .where('id', '=', id)
       .returningAll()
       .executeTakeFirstOrThrow();
