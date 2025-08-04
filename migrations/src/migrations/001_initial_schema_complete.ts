@@ -619,6 +619,46 @@ export const initialSchemaComplete: Migration = {
       .addColumn('content_hash', 'text', (col) => col.notNull())
       .execute();
 
+    // System administration tables
+    logger.info('Creating system administration tables...');
+    
+    await db.schema
+      .createTable('data_retention_policies')
+      .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
+      .addColumn('table_name', 'text', (col) => col.notNull())
+      .addColumn('retention_days', 'integer', (col) => col.notNull())
+      .addColumn('conditions', 'jsonb', (col) => col.defaultTo('{}'))
+      .addColumn('is_active', 'boolean', (col) => col.defaultTo(true))
+      .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .execute();
+
+    await db.schema
+      .createTable('notification_preferences')
+      .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
+      .addColumn('user_id', 'text', (col) => col.notNull())
+      .addColumn('notification_type', 'text', (col) => col.notNull())
+      .addColumn('channel', 'text', (col) => col.notNull())
+      .addColumn('is_enabled', 'boolean', (col) => col.defaultTo(true))
+      .addColumn('settings', 'jsonb', (col) => col.defaultTo('{}'))
+      .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addUniqueConstraint('uk_notification_preferences', ['user_id', 'notification_type', 'channel'])
+      .execute();
+
+    await db.schema
+      .createTable('feature_flags')
+      .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
+      .addColumn('flag_name', 'text', (col) => col.notNull().unique())
+      .addColumn('description', 'text')
+      .addColumn('is_enabled', 'boolean', (col) => col.defaultTo(false))
+      .addColumn('conditions', 'jsonb', (col) => col.defaultTo('{}'))
+      .addColumn('rollout_percentage', 'decimal', (col) => col.defaultTo(0))
+      .addColumn('created_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', 'timestamp', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('created_by', 'text')
+      .execute();
+
     // ===================
     // PERFORMANCE INDEXES
     // ===================
@@ -785,6 +825,9 @@ function getAllTableNames(): string[] {
     'document_processing_queue',
     'extracted_content',
     'knowledge_graph_metrics',
+    'data_retention_policies',
+    'notification_preferences',
+    'feature_flags',
     
     // Independent entity tables
     'boards',
