@@ -213,14 +213,14 @@ function createDatabaseAdapter(service: KanbanService): any {
     getCardDependencies: () => { throw new Error('Not implemented in service yet'); },
     
     // Time Tracking methods
-    createTimeEntry: () => { throw new Error('Not implemented in service yet'); },
-    updateTimeEntry: () => { throw new Error('Not implemented in service yet'); },
-    deleteTimeEntry: () => { throw new Error('Not implemented in service yet'); },
-    getTimeEntryById: () => { throw new Error('Not implemented in service yet'); },
-    getTimeEntriesByCard: () => { throw new Error('Not implemented in service yet'); },
-    getActiveTimeEntry: () => { throw new Error('Not implemented in service yet'); },
-    getActiveTimeEntries: () => { throw new Error('Not implemented in service yet'); },
-    updateCardActualHours: () => { throw new Error('Not implemented in service yet'); },
-    getTimeReport: () => { throw new Error('Not implemented in service yet'); },
+    createTimeEntry: (data: any) => service.createTimeEntry(data),
+    updateTimeEntry: (id: number, data: any) => service.updateTimeEntry(id, data),
+    deleteTimeEntry: (id: number) => service.deleteTimeEntry(id),
+    getTimeEntryById: (id: number) => service.getTimeEntryById(id),
+    getTimeEntriesByCard: (cardId: number) => service.getTimeEntriesByCard(cardId),
+    getActiveTimeEntry: (cardId?: number) => service.getActiveTimeEntry(cardId),
+    getActiveTimeEntries: () => service.getActiveTimeEntries(),
+    updateCardActualHours: (cardId: number) => service.updateCardActualHours(cardId),
+    getTimeReport: (cardId?: number, startDate?: string, endDate?: string) => service.getTimeReport(cardId, startDate, endDate),
   };
 }

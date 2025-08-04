@@ -1,22 +1,19 @@
-# Migration Container for MCP Tools Database Setup
+# Migration Container for MCP Tools Database Setup (PostgreSQL Only)
 FROM node:20-alpine
-
-# Install build dependencies for native modules
-RUN apk add --no-cache python3 make g++
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY tsup.config.ts ./
+COPY migrations/package*.json ./
+COPY migrations/tsconfig.json ./
+COPY migrations/tsup.config.ts ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (no native modules needed for PostgreSQL only)
+RUN npm install
 
 # Copy source code
-COPY src/ ./src/
+COPY migrations/src/ ./src/
 
 # Build the migration runner
 RUN npm run build

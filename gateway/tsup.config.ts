@@ -11,6 +11,13 @@ export default defineConfig({
   treeshake: true,
   external: [
     // Mark all node_modules as external
+    '@mcp-tools/core',
+    '@mcp-tools/core/kanban',
+    '@mcp-tools/core/memory',
+    '@mcp-tools/core/scraper',
+    'pg',
+    'ioredis',
+    'socket.io'
   ],
   noExternal: [
     // Include specific packages in bundle if needed

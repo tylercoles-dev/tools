@@ -1,5 +1,5 @@
 export interface Page {
-  id?: number;
+  id?: string;
   title: string;
   slug: string;
   content: string;
@@ -9,7 +9,7 @@ export interface Page {
   created_by?: string;
   updated_by?: string;
   is_published?: boolean;
-  parent_id?: number;
+  parent_id?: string;
   sort_order?: number;
   
   // Related data
@@ -21,7 +21,7 @@ export interface Page {
 }
 
 export interface Category {
-  id?: number;
+  id?: string;
   name: string;
   description?: string;
   color?: string;
@@ -29,23 +29,23 @@ export interface Category {
 }
 
 export interface Tag {
-  id?: number;
+  id?: string;
   name: string;
   color?: string;
   created_at?: string;
 }
 
 export interface PageLink {
-  id?: number;
-  source_page_id: number;
-  target_page_id: number;
+  id?: string;
+  source_page_id: string;
+  target_page_id: string;
   link_text?: string;
   created_at?: string;
 }
 
 export interface Attachment {
-  id?: number;
-  page_id: number;
+  id?: string;
+  page_id: string;
   filename: string;
   original_name: string;
   mime_type?: string;
@@ -55,8 +55,8 @@ export interface Attachment {
 }
 
 export interface PageHistory {
-  id?: number;
-  page_id: number;
+  id?: string;
+  page_id: string;
   title: string;
   content: string;
   summary?: string;
@@ -66,13 +66,13 @@ export interface PageHistory {
 }
 
 export interface Comment {
-  id?: number;
-  page_id: number;
+  id?: string;
+  page_id: string;
   content: string;
   author?: string;
   created_at?: string;
   updated_at?: string;
-  parent_id?: number;
+  parent_id?: string;
   
   // Related data
   replies?: Comment[];
@@ -106,7 +106,7 @@ export interface WikiStats {
 
 export interface RecentActivity {
   type: 'page_created' | 'page_updated' | 'comment_added';
-  page_id: number;
+  page_id: string;
   page_title: string;
   author?: string;
   timestamp: string;
@@ -122,10 +122,10 @@ export interface CreatePageRequest {
   title: string;
   content: string;
   summary?: string;
-  category_ids?: number[];
+  category_ids?: string[];
   tag_names?: string[];
   is_published?: boolean;
-  parent_id?: number;
+  parent_id?: string;
   created_by?: string;
 }
 
@@ -133,17 +133,17 @@ export interface UpdatePageRequest {
   title?: string;
   content?: string;
   summary?: string;
-  category_ids?: number[];
+  category_ids?: string[];
   tag_names?: string[];
   is_published?: boolean;
-  parent_id?: number;
+  parent_id?: string;
   updated_by?: string;
   change_reason?: string;
 }
 
 export interface SearchRequest {
   query: string;
-  category_id?: number;
+  category_id?: string;
   tag_names?: string[];
   include_drafts?: boolean;
   limit?: number;

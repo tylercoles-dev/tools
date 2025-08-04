@@ -6,12 +6,12 @@ import { z } from 'zod';
 
 // Database entity interfaces
 export interface WikiPage {
-  id: number;
+  id: string;
   title: string;
   slug: string;
   content: string;
   summary: string | null;
-  category_id: number | null;
+  category_id: string | null;
   author_id: string | null;
   published: boolean;
   created_at: string;
@@ -20,7 +20,7 @@ export interface WikiPage {
 }
 
 export interface WikiCategory {
-  id: number;
+  id: string;
   name: string;
   slug: string;
   description: string | null;
@@ -30,7 +30,7 @@ export interface WikiCategory {
 }
 
 export interface WikiTag {
-  id: number;
+  id: string;
   name: string;
   color: string;
   created_at: string;
@@ -39,7 +39,7 @@ export interface WikiTag {
 
 export interface WikiAttachment {
   id: string;
-  page_id: number;
+  page_id: string;
   filename: string;
   original_name: string;
   mime_type: string;
@@ -55,7 +55,7 @@ export interface WikiAttachment {
 export const CreatePageSchema = z.object({
   title: z.string().min(1).max(255),
   content: z.string().min(1),
-  category_id: z.number().int().positive().optional(),
+  category_id: z.string().uuid().optional(),
   tags: z.array(z.string()).default([]),
   published: z.boolean().default(true)
 });
@@ -70,7 +70,7 @@ export const CreateCategorySchema = z.object({
 
 // Attachment schemas
 export const AttachmentUploadSchema = z.object({
-  page_id: z.number().int().positive(),
+  page_id: z.string().uuid(),
   description: z.string().optional(),
   uploaded_by: z.string().optional()
 });
@@ -141,7 +141,7 @@ export class WikiError extends Error {
 }
 
 export class WikiPageNotFoundError extends WikiError {
-  constructor(id: number | string) {
+  constructor(id: string) {
     super(`Wiki page with id ${id} not found`, 'NOT_FOUND', 404);
   }
 }

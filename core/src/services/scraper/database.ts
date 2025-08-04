@@ -35,7 +35,7 @@ export class ScraperDatabaseManager {
 
   async initialize(): Promise<void> {
     await this.dbManager.initialize();
-    await this.createTables();
+    await this.testConnection();
   }
 
   get db(): Kysely<ScraperDatabase> {
@@ -46,76 +46,14 @@ export class ScraperDatabaseManager {
     return await this.dbManager.healthCheck();
   }
 
-  private async createTables(): Promise<void> {
-    const isPostgreSQL = this.dbManager.getDialectType() === 'postgresql';
-    
-    // Create scraped_pages table
-    let scrapedPagesTable = this.db.schema
-      .createTable('scraped_pages')
-      .ifNotExists()
-      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
-      .addColumn('url', 'text', (col) => col.notNull())
-      .addColumn('title', 'text')
-      .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('content_hash', 'text', (col) => col.notNull())
-      .addColumn('metadata', isPostgreSQL ? 'jsonb' : 'text', (col) => col.notNull().defaultTo(sql`'{}'`))
-      .addColumn('scraped_at', isPostgreSQL ? 'timestamp' : 'text', (col) => col.notNull())
-      .addColumn('status', 'text', (col) => col.notNull())
-      .addColumn('error_message', 'text')
-      .addColumn('created_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
-        col.notNull().defaultTo(isPostgreSQL ? sql`CURRENT_TIMESTAMP` : sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
-        col.notNull().defaultTo(isPostgreSQL ? sql`CURRENT_TIMESTAMP` : sql`CURRENT_TIMESTAMP`));
-    
-    await scrapedPagesTable.execute();
-
-    // Create scraping_jobs table
-    await this.db.schema
-      .createTable('scraping_jobs')
-      .ifNotExists()
-      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
-      .addColumn('url', 'text', (col) => col.notNull())
-      .addColumn('selector', 'text')
-      .addColumn('options', isPostgreSQL ? 'jsonb' : 'text', (col) => col.notNull().defaultTo(sql`'{}'`))
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo(sql`'pending'`))
-      .addColumn('priority', 'integer', (col) => col.notNull().defaultTo(5))
-      .addColumn('scheduled_at', isPostgreSQL ? 'timestamp' : 'text')
-      .addColumn('started_at', isPostgreSQL ? 'timestamp' : 'text')
-      .addColumn('completed_at', isPostgreSQL ? 'timestamp' : 'text')
-      .addColumn('error_message', 'text')
-      .addColumn('result_page_id', isPostgreSQL ? 'uuid' : 'text')
-      .addColumn('created_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
-        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', isPostgreSQL ? 'timestamp' : 'text', (col) => 
-        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute();
-
-    // Create scraper_performance table
-    await this.db.schema
-      .createTable('scraper_performance')
-      .ifNotExists()
-      .addColumn('id', isPostgreSQL ? 'uuid' : 'text', (col) => col.primaryKey())
-      .addColumn('url', 'text', (col) => col.notNull())
-      .addColumn('domain', 'text', (col) => col.notNull())
-      .addColumn('processing_time_ms', 'integer', (col) => col.notNull())
-      .addColumn('content_size_bytes', 'integer')
-      .addColumn('status_code', 'integer')
-      .addColumn('error_message', 'text')
-      .addColumn('timestamp', isPostgreSQL ? 'timestamp' : 'text', (col) => 
-        col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute();
-
-    // Add indexes for performance - PostgreSQL uses CREATE INDEX IF NOT EXISTS, SQLite uses IF NOT EXISTS
-    const indexSql = isPostgreSQL ? 'CREATE INDEX IF NOT EXISTS' : 'CREATE INDEX IF NOT EXISTS';
-    
-    await sql`${sql.raw(indexSql)} idx_scraped_pages_url ON scraped_pages(url)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraped_pages_content_hash ON scraped_pages(content_hash)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraped_pages_scraped_at ON scraped_pages(scraped_at)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraping_jobs_status ON scraping_jobs(status)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraping_jobs_priority ON scraping_jobs(priority)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraping_jobs_scheduled_at ON scraping_jobs(scheduled_at)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraper_performance_domain ON scraper_performance(domain)`.execute(this.db);
-    await sql`${sql.raw(indexSql)} idx_scraper_performance_timestamp ON scraper_performance(timestamp)`.execute(this.db);
+  private async testConnection(): Promise<void> {
+    try {
+      await this.db.selectFrom('scraped_pages').select('id').limit(1).execute();
+      console.log('✅ Scraper database connection verified successfully');
+    } catch (error) {
+      console.error('❌ Scraper database connection failed. Ensure migration service has completed:', error);
+      throw new Error('Scraper database not available. Migration service may not have completed successfully.');
+    }
   }
 
   // Scraped Pages CRUD operations

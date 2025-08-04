@@ -1,25 +1,25 @@
 /**
- * Memory Database Layer
+ * Memory Database Layer - PostgreSQL implementation with Kysely
  */
 
 import { Kysely, sql } from 'kysely';
-import Database from 'better-sqlite3';
-import { SqliteDialect } from 'kysely';
 import crypto from 'crypto';
+import { DatabaseConnectionManager, createDatabaseConfig } from '../../utils/database.js';
+import type { DatabaseConfig } from '../../utils/database.js';
 import type { Memory, Relationship, Concept } from './types.js';
 
 // Database schema interfaces
 export interface MemoryDatabase {
-  memories: Memory;
-  relationships: Relationship;
-  concepts: Concept;
+  memories: Omit<Memory, 'id'> & { id?: string };
+  relationships: Omit<Relationship, 'id'> & { id?: string };
+  concepts: Omit<Concept, 'id'> & { id?: string };
   memory_concepts: {
     memory_id: string;
     concept_id: string;
     created_at: string;
   };
   memory_merges: {
-    id: string;
+    id?: string;
     primary_memory_id: string;
     merged_memory_ids: string;
     strategy: string;
@@ -28,152 +28,53 @@ export interface MemoryDatabase {
   };
 }
 
-import type { DatabaseConfig } from '../../utils/database.js';
-
 export class MemoryDatabaseManager {
-  private db: Kysely<MemoryDatabase>;
+  private dbManager: DatabaseConnectionManager<MemoryDatabase>;
 
-  constructor(config: DatabaseConfig) {
-    if (config.type === 'sqlite') {
-      const database = new Database(config.filename || './memory.db');
-      this.db = new Kysely<MemoryDatabase>({
-        dialect: new SqliteDialect({ database })
-      });
-    } else {
-      throw new Error('PostgreSQL support not yet implemented');
-    }
+  constructor(config?: Partial<DatabaseConfig>) {
+    const dbConfig = createDatabaseConfig({
+      database: 'memory_db',
+      ...config
+    });
+    this.dbManager = new DatabaseConnectionManager<MemoryDatabase>(dbConfig);
   }
 
   async initialize(): Promise<void> {
     try {
-      console.log('🔄 Creating memory database tables...');
-      await this.createTables();
-      console.log('✅ Memory database tables created successfully');
+      console.log('🔄 Initializing memory database connection...');
+      await this.dbManager.initialize();
+      console.log('🔄 Testing memory database connection...');
+      await this.testConnection();
+      console.log('✅ Memory database connection verified successfully');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Failed to create memory tables:', errorMessage);
+      console.error('❌ Failed to connect to memory database:', errorMessage);
       console.error('Error details:', error);
       throw error;
     }
   }
 
-  private async createTables(): Promise<void> {
-    // Create memories table
-    await this.db.schema
-      .createTable('memories')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('content', 'text', (col) => col.notNull())
-      .addColumn('content_hash', 'text', (col) => col.notNull())
-      .addColumn('context', 'text', (col) => col.notNull())
-      .addColumn('importance', 'integer', (col) => col.notNull().defaultTo(1))
-      .addColumn('status', 'text', (col) => col.notNull().defaultTo('active'))
-      .addColumn('access_count', 'integer', (col) => col.notNull().defaultTo(0))
-      .addColumn('last_accessed_at', 'text')
-      .addColumn('vector_id', 'text')
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('created_by', 'text')
-      .addColumn('metadata', 'text')
-      .execute();
-
-    // Create relationships table
-    await this.db.schema
-      .createTable('relationships')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('source_id', 'text', (col) => col.notNull())
-      .addColumn('target_id', 'text', (col) => col.notNull())
-      .addColumn('relationship_type', 'text', (col) => col.notNull())
-      .addColumn('strength', 'real', (col) => col.notNull().defaultTo(1.0))
-      .addColumn('bidirectional', 'boolean', (col) => col.notNull().defaultTo(false))
-      .addColumn('metadata', 'text', (col) => col.notNull().defaultTo('{}'))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('last_updated', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute();
-
-    // Create concepts table
-    await this.db.schema
-      .createTable('concepts')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('name', 'text', (col) => col.notNull())
-      .addColumn('description', 'text')
-      .addColumn('type', 'text', (col) => col.notNull())
-      .addColumn('confidence', 'real', (col) => col.notNull().defaultTo(1.0))
-      .addColumn('extracted_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .execute();
-
-    // Create memory_concepts junction table
-    await this.db.schema
-      .createTable('memory_concepts')
-      .ifNotExists()
-      .addColumn('memory_id', 'text', (col) => col.notNull())
-      .addColumn('concept_id', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addPrimaryKeyConstraint('primary_key', ['memory_id', 'concept_id'])
-      .execute();
-
-    // Add indexes for performance
-    await this.db.schema
-      .createIndex('idx_memories_content_hash')
-      .ifNotExists()
-      .on('memories')
-      .columns(['content_hash'])
-      .execute();
-    
-    await this.db.schema
-      .createIndex('idx_memories_created_at')
-      .ifNotExists()
-      .on('memories')
-      .columns(['created_at'])
-      .execute();
-    
-    await this.db.schema
-      .createIndex('idx_relationships_source')
-      .ifNotExists()
-      .on('relationships')
-      .columns(['source_id'])
-      .execute();
-    
-    await this.db.schema
-      .createIndex('idx_relationships_target')
-      .ifNotExists()
-      .on('relationships')
-      .columns(['target_id'])
-      .execute();
-    
-    await this.db.schema
-      .createIndex('idx_concepts_name')
-      .ifNotExists()
-      .on('concepts')
-      .columns(['name'])
-      .execute();
-    
-    await this.db.schema
-      .createIndex('idx_memory_concepts_memory')
-      .ifNotExists()
-      .on('memory_concepts')
-      .columns(['memory_id'])
-      .execute();
+  get kysely(): Kysely<MemoryDatabase> {
+    return this.dbManager.kysely;
   }
 
-  get kysely() {
-    return this.db;
+  private async testConnection(): Promise<void> {
+    try {
+      await this.kysely.selectFrom('memories').select('id').limit(1).execute();
+      console.log('✅ Memory database tables verified successfully');
+    } catch (error) {
+      console.error('❌ Memory database tables not available. Ensure migration service has completed:', error);
+      throw new Error('Memory database not available. Migration service may not have completed successfully.');
+    }
   }
 
   // Repository methods
   async createMemory(memory: Omit<Memory, 'id' | 'created_at' | 'updated_at'>): Promise<Memory> {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
-    const result = await this.db
+    const result = await this.kysely
       .insertInto('memories')
       .values({
-        id,
         created_at: now,
         updated_at: now,
         ...memory
@@ -181,15 +82,17 @@ export class MemoryDatabaseManager {
       .returningAll()
       .executeTakeFirstOrThrow();
     
-    return result;
+    return result as Memory;
   }
 
   async getMemory(id: string): Promise<Memory | undefined> {
-    return await this.db
+    const result = await this.kysely
       .selectFrom('memories')
       .selectAll()
       .where('id', '=', id)
       .executeTakeFirst();
+    
+    return result as Memory | undefined;
   }
 
   async searchMemories(filters: {
@@ -199,7 +102,7 @@ export class MemoryDatabaseManager {
     limit?: number;
     offset?: number;
   }): Promise<Memory[]> {
-    let query = this.db.selectFrom('memories').selectAll();
+    let query = this.kysely.selectFrom('memories').selectAll();
     
     if (filters.contentHash) {
       query = query.where('content_hash', '=', filters.contentHash);
@@ -218,35 +121,36 @@ export class MemoryDatabaseManager {
       query = query.offset(filters.offset);
     }
     
-    return await query.execute();
+    const results = await query.execute();
+    return results as Memory[];
   }
 
   async updateMemory(id: string, updates: Partial<Memory>): Promise<Memory> {
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
-    return await this.db
+    const result = await this.kysely
       .updateTable('memories')
       .set({ ...updates, updated_at: now })
       .where('id', '=', id)
       .returningAll()
       .executeTakeFirstOrThrow();
+    
+    return result as Memory;
   }
 
   async deleteMemory(id: string): Promise<void> {
-    await this.db
+    await this.kysely
       .deleteFrom('memories')
       .where('id', '=', id)
       .execute();
   }
 
   async createRelationship(relationship: Omit<Relationship, 'id' | 'created_at' | 'updated_at'>): Promise<Relationship> {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
-    return await this.db
+    const result = await this.kysely
       .insertInto('relationships')
       .values({
-        id,
         created_at: now,
         updated_at: now,
         ...relationship,
@@ -254,10 +158,12 @@ export class MemoryDatabaseManager {
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    
+    return result as Relationship;
   }
 
   async getRelationships(memoryId: string): Promise<Relationship[]> {
-    return await this.db
+    const results = await this.kysely
       .selectFrom('relationships')
       .selectAll()
       .where((eb) => eb.or([
@@ -265,50 +171,56 @@ export class MemoryDatabaseManager {
         eb('target_id', '=', memoryId)
       ]))
       .execute();
+    
+    return results as Relationship[];
   }
 
   async createConcept(concept: Omit<Concept, 'id' | 'created_at' | 'updated_at'>): Promise<Concept> {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
+    const now = this.dbManager.getCurrentTimestamp();
     
-    return await this.db
+    const result = await this.kysely
       .insertInto('concepts')
       .values({
-        id,
         created_at: now,
         updated_at: now,
         ...concept
       })
       .returningAll()
       .executeTakeFirstOrThrow();
+    
+    return result as Concept;
   }
 
   async findConceptByName(name: string): Promise<Concept | undefined> {
-    return await this.db
+    const result = await this.kysely
       .selectFrom('concepts')
       .selectAll()
       .where('name', '=', name)
       .executeTakeFirst();
+    
+    return result as Concept | undefined;
   }
 
   async linkMemoryConcept(memoryId: string, conceptId: string): Promise<void> {
-    await this.db
+    await this.kysely
       .insertInto('memory_concepts')
       .values({
         memory_id: memoryId,
         concept_id: conceptId,
-        created_at: new Date().toISOString()
+        created_at: this.dbManager.getCurrentTimestamp()
       })
       .execute();
   }
 
   async getMemoryConcepts(memoryId: string): Promise<Concept[]> {
-    return await this.db
+    const results = await this.kysely
       .selectFrom('memory_concepts')
       .innerJoin('concepts', 'concepts.id', 'memory_concepts.concept_id')
       .selectAll('concepts')
       .where('memory_concepts.memory_id', '=', memoryId)
       .execute();
+    
+    return results as Concept[];
   }
 
   async getMemoryStats(filters?: {
@@ -320,7 +232,7 @@ export class MemoryDatabaseManager {
     totalRelationships: number;
     totalConcepts: number;
   }> {
-    let memoryQuery = this.db.selectFrom('memories').select(sql`count(*)`.as('count'));
+    let memoryQuery = this.kysely.selectFrom('memories').select(sql`count(*)`.as('count'));
     
     if (filters?.userId) {
       memoryQuery = memoryQuery.where('created_by', '=', filters.userId);
@@ -333,8 +245,8 @@ export class MemoryDatabaseManager {
     
     const [memoryCount, relationshipCount, conceptCount] = await Promise.all([
       memoryQuery.executeTakeFirstOrThrow(),
-      this.db.selectFrom('relationships').select(sql`count(*)`.as('count')).executeTakeFirstOrThrow(),
-      this.db.selectFrom('concepts').select(sql`count(*)`.as('count')).executeTakeFirstOrThrow()
+      this.kysely.selectFrom('relationships').select(sql`count(*)`.as('count')).executeTakeFirstOrThrow(),
+      this.kysely.selectFrom('concepts').select(sql`count(*)`.as('count')).executeTakeFirstOrThrow()
     ]);
     
     return {
@@ -345,7 +257,7 @@ export class MemoryDatabaseManager {
   }
 
   async getAverageImportance(): Promise<number> {
-    const result = await this.db
+    const result = await this.kysely
       .selectFrom('memories')
       .select(sql`avg(importance)`.as('average'))
       .where('status', '=', 'active')
@@ -355,7 +267,7 @@ export class MemoryDatabaseManager {
   }
 
   async getMostActiveUsers(limit: number = 10): Promise<Array<{ created_by: string; memory_count: number }>> {
-    const results = await this.db
+    const results = await this.kysely
       .selectFrom('memories')
       .select(['created_by', sql`count(*)`.as('memory_count')])
       .where('created_by', 'is not', null)
@@ -372,15 +284,15 @@ export class MemoryDatabaseManager {
   }
 
   async getTopProjects(limit: number = 10): Promise<Array<{ project_name: string; memory_count: number }>> {
-    const results = await this.db
+    const results = await this.kysely
       .selectFrom('memories')
       .select([
-        sql`JSON_EXTRACT(context, '$.projectName')`.as('project_name'),
+        sql`context->>'projectName'`.as('project_name'),
         sql`count(*)`.as('memory_count')
       ])
       .where('status', '=', 'active')
-      .where(sql`JSON_EXTRACT(context, '$.projectName')`, 'is not', null)
-      .groupBy(sql`JSON_EXTRACT(context, '$.projectName')`)
+      .where(sql`context->>'projectName'`, 'is not', null)
+      .groupBy(sql`context->>'projectName'`)
       .orderBy('memory_count', 'desc')
       .limit(limit)
       .execute();
@@ -392,7 +304,7 @@ export class MemoryDatabaseManager {
   }
 
   async getConceptDistribution(): Promise<Record<string, number>> {
-    const results = await this.db
+    const results = await this.kysely
       .selectFrom('concepts')
       .select(['type', sql`count(*)`.as('count')])
       .groupBy('type')
@@ -407,14 +319,14 @@ export class MemoryDatabaseManager {
   }
 
   async clearMemoryConcepts(memoryId: string): Promise<void> {
-    await this.db
+    await this.kysely
       .deleteFrom('memory_concepts')
       .where('memory_id', '=', memoryId)
       .execute();
   }
 
   async deleteRelationship(relationshipId: string): Promise<void> {
-    await this.db
+    await this.kysely
       .deleteFrom('relationships')
       .where('id', '=', relationshipId)
       .execute();
@@ -427,29 +339,14 @@ export class MemoryDatabaseManager {
     created_at: string;
     created_by: string | null;
   }): Promise<void> {
-    // Create merge_audit table if it doesn't exist
-    await this.db.schema
-      .createTable('memory_merges')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('primary_memory_id', 'text', (col) => col.notNull())
-      .addColumn('merged_memory_ids', 'text', (col) => col.notNull())
-      .addColumn('strategy', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addColumn('created_by', 'text')
-      .execute();
-
     // Insert audit record
-    await this.db
+    await this.kysely
       .insertInto('memory_merges')
-      .values({
-        id: crypto.randomUUID(),
-        ...auditData
-      })
+      .values(auditData)
       .execute();
   }
 
   async close(): Promise<void> {
-    await this.db.destroy();
+    await this.dbManager.close();
   }
 }

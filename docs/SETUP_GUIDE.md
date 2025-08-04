@@ -20,8 +20,7 @@ Complete guide for setting up the MCP Tools ecosystem for development, testing, 
 - **Node.js** 18.0.0 or higher
 - **npm** 8.0.0 or higher
 - **Git** for version control
-- **SQLite** for local development databases
-- **PostgreSQL** (optional, for production)
+- **PostgreSQL** 12+ (required for all environments with UUID support)
 
 ### Optional Dependencies
 
@@ -33,6 +32,54 @@ Complete guide for setting up the MCP Tools ecosystem for development, testing, 
 
 - **TypeScript** globally installed: `npm install -g typescript`
 - **IDE/Editor** with TypeScript support (VS Code recommended)
+
+### Important Architecture Notes
+
+- **UUID Primary Keys**: All database tables use UUID primary keys for improved performance and distributed system compatibility
+- **PostgreSQL-Only**: The system is designed exclusively for PostgreSQL and uses PostgreSQL-specific features like `gen_random_uuid()`
+- **Consolidated Migration**: Single migration script creates the complete schema - no incremental migration history needed since the app hasn't been released
+
+### UUID Architecture Best Practices
+
+#### Working with UUIDs
+- **Generation**: Use PostgreSQL's `gen_random_uuid()` for database inserts
+- **Client-side**: Use Node.js `crypto.randomUUID()` for client-generated IDs
+- **Validation**: All UUIDs are validated using Zod schemas in the type system
+- **Performance**: UUIDs are indexed as strings - no performance concerns for lookups
+- **Format**: Standard UUID v4 format: `123e4567-e89b-012d-3456-426614174000`
+
+#### Common UUID Operations
+```typescript
+// Creating new entities
+const newTaskId = crypto.randomUUID();
+
+// Database queries with UUID
+const task = await db.selectFrom('tasks').where('id', '=', taskId).executeTakeFirst();
+
+// Type-safe UUID handling
+const taskSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  boardId: z.string().uuid(),
+});
+
+// Validation helper
+const isValidUUID = (id: string): boolean => {
+  try {
+    return z.string().uuid().parse(id) === id;
+  } catch {
+    return false;
+  }
+};
+```
+
+#### Database Performance with UUIDs
+- **Indexing**: UUID primary keys perform excellently with proper indexing
+- **Storage**: UUIDs use 16 bytes vs 8 bytes for bigint, acceptable trade-off  
+- **Joins**: Join performance identical to integer keys with proper indexes
+- **Clustering**: UUIDs distribute evenly, preventing hotspots
+- **Memory**: String UUIDs have minimal memory overhead
+- **Network**: 36-character UUIDs vs 8-character integers - negligible impact
 
 ## Quick Start
 
@@ -126,7 +173,94 @@ The web client is fully implemented and includes:
 - 📱 Responsive design for mobile devices
 - ♿ Accessibility features and testing
 
-### 4. Verify Setup
+### 4. Database Setup
+
+Before starting the services, set up the PostgreSQL database:
+
+```bash
+# Navigate to migrations directory
+cd migrations
+
+# Build migration script
+npm install
+npm run build
+
+# Run consolidated migration with essential seed data
+POSTGRES_PASSWORD=your_password POSTGRES_DB=mcp_tools node dist/migrate.js
+
+# Alternative: Fresh database without seed data
+POSTGRES_PASSWORD=your_password POSTGRES_DB=mcp_tools SEED_LEVEL=none node dist/migrate.js
+```
+
+**Migration Details:**
+- Creates complete schema with UUID primary keys
+- Includes all tables for Kanban, Wiki, and Memory systems  
+- Adds performance indexes for optimal query performance
+- Uses PostgreSQL-specific features for best performance
+
+#### Database Schema Highlights
+
+The consolidated migration creates 30+ tables with UUID primary keys:
+
+**Kanban System Tables:**
+```sql
+CREATE TABLE boards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  color VARCHAR(7) DEFAULT '#6366f1'
+);
+
+CREATE TABLE cards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  priority VARCHAR(20) DEFAULT 'medium',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+```
+
+**Wiki System Tables:**
+```sql
+CREATE TABLE pages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  parent_id UUID REFERENCES pages(id) ON DELETE SET NULL
+);
+```
+
+**Memory System Tables:**
+```sql
+CREATE TABLE memories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  context JSONB NOT NULL,
+  importance INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**Indexing Strategy:**
+- UUID primary keys are automatically indexed
+- Foreign key UUID columns have dedicated indexes  
+- Composite indexes on commonly queried UUID combinations
+- GIN indexes for UUID arrays (tags, mentions)
+- Performance indexes on frequently joined tables
+
+### 5. Verify Setup
 
 Once your development environment is running, verify the setup:
 
@@ -139,6 +273,154 @@ curl http://localhost:3001/api/health
 ```
 
 You should see the web client interface and a successful health check response.
+
+## Migration from Previous Versions
+
+### Database Migration Process
+
+Since this application uses a consolidated migration approach, there are no incremental migrations to run. However, if you're working with an existing development database or need to reset your schema:
+
+#### Fresh Database Setup
+```bash
+# Create new PostgreSQL database
+createdb mcp_tools
+
+# Run consolidated migration
+cd migrations
+POSTGRES_PASSWORD=your_password POSTGRES_DB=mcp_tools node dist/migrate.js
+```
+
+#### Reset Existing Database
+```bash
+# Drop and recreate database
+dropdb mcp_tools
+createdb mcp_tools
+
+# Run migration again
+POSTGRES_PASSWORD=your_password POSTGRES_DB=mcp_tools node dist/migrate.js
+```
+
+#### Verification Commands
+```sql
+-- Connect to your database
+psql -d mcp_tools
+
+-- Verify all tables use UUID primary keys
+SELECT table_name, column_name, data_type 
+FROM information_schema.columns 
+WHERE column_name = 'id' AND table_schema = 'public';
+-- Should return 'uuid' for all id columns
+
+-- Check table count (should be 30+ tables)
+SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';
+
+-- Verify UUID generation works
+SELECT gen_random_uuid();
+```
+
+### Code Migration Checklist
+
+If you have existing code that worked with integer IDs, here's what needs to be updated:
+
+#### Before Migration (Integer IDs)
+```typescript
+interface Task {
+  id: number;        // ❌ Old format
+  boardId: number;   // ❌ Old format
+  title: string;
+}
+
+// Database queries
+const task = await db.selectFrom('tasks').where('id', '=', 123).executeTakeFirst();
+```
+
+#### After Migration (UUID Strings)
+```typescript
+interface Task {
+  id: string;        // ✅ UUID string
+  boardId: string;   // ✅ UUID string  
+  title: string;
+}
+
+// Database queries  
+const taskId = crypto.randomUUID();
+const task = await db.selectFrom('tasks').where('id', '=', taskId).executeTakeFirst();
+```
+
+#### API Client Updates
+```typescript
+// Update API calls to handle UUID strings
+const taskId = crypto.randomUUID(); // Generate UUID
+const response = await fetch(`/api/tasks/${taskId}`);
+const task = await response.json();
+console.log(task.id); // Logs UUID string like "123e4567-e89b-012d-3456-426614174000"
+```
+
+### Troubleshooting Migration Issues
+
+#### Common Issues After UUID Migration
+
+1. **TypeScript Type Errors**
+   ```bash
+   # Error: Argument of type 'number' is not assignable to parameter of type 'string'
+   # Fix: Update interfaces to use string for ID fields
+   ```
+   ```typescript
+   // ❌ Before
+   const taskId: number = 123;
+   
+   // ✅ After  
+   const taskId: string = crypto.randomUUID();
+   ```
+
+2. **Database Query Errors**
+   ```bash
+   # Error: operator does not exist: uuid = integer
+   # Fix: Ensure query parameters are UUID strings, not numbers
+   ```
+   ```typescript
+   // ❌ Before
+   const result = await db.query('SELECT * FROM tasks WHERE id = $1', [123]);
+   
+   // ✅ After
+   const result = await db.query('SELECT * FROM tasks WHERE id = $1', [uuidString]);
+   ```
+
+3. **Frontend State Management**
+   ```typescript
+   // ❌ Before
+   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+   
+   // ✅ After
+   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+   ```
+
+4. **Testing Fixtures**
+   ```typescript
+   // ❌ Before
+   const mockTask = { id: 1, title: 'Test Task' };
+   
+   // ✅ After  
+   const mockTask = { 
+     id: '123e4567-e89b-012d-3456-426614174000', 
+     title: 'Test Task' 
+   };
+   ```
+
+#### Quick Fixes Reference
+```typescript
+// UUID Generation
+const id = crypto.randomUUID(); // ✅ Client-side
+// Database: gen_random_uuid() // ✅ Server-side
+
+// Type Validation
+import { z } from 'zod';
+const uuidSchema = z.string().uuid(); // ✅ Runtime validation
+
+// Common Patterns
+const isValidUUID = (str: string) => 
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+```
 
 ## Component Setup
 
@@ -173,7 +455,7 @@ npm run dev      # Development mode with hot reload
 **Configuration:**
 - Default port: `3000`
 - Environment: `.env` file (copy from `.env.example`)
-- Database: SQLite files created automatically
+- Database: PostgreSQL connection required
 
 **Endpoints:**
 - Health: `GET /api/health`
@@ -286,8 +568,8 @@ PORT=3000
 LOG_LEVEL=info
 
 # Database
-DATABASE_URL=sqlite:./memory.db
-KANBAN_DATABASE_URL=sqlite:./kanban.db
+DATABASE_URL=postgresql://user:password@localhost:5432/mcp_tools
+KANBAN_DATABASE_URL=postgresql://user:password@localhost:5432/mcp_tools
 
 # MCP Servers
 MCP_KANBAN_COMMAND=node
@@ -428,7 +710,7 @@ docker-compose up -d
 ### Environment-Specific Deployment
 
 #### Development
-- SQLite databases
+- PostgreSQL databases
 - Local file storage
 - Debug logging
 
@@ -469,9 +751,10 @@ npm install
 #### Database Connection Issues
 
 ```bash
-# Reset local databases
-rm -f *.db
-npm run db:setup
+# Reset PostgreSQL databases
+psql -c "DROP DATABASE IF EXISTS mcp_tools;"
+psql -c "CREATE DATABASE mcp_tools;"
+npm run db:migrate
 ```
 
 #### Port Conflicts
@@ -487,18 +770,26 @@ kill -9 <PID>
 
 ### Database Issues
 
-#### SQLite File Permissions
+#### PostgreSQL Connection Issues
 ```bash
-chmod 664 *.db
-chown $USER:$USER *.db
+# Check PostgreSQL service status
+sudo systemctl status postgresql
+
+# Start PostgreSQL if not running
+sudo systemctl start postgresql
 ```
 
 #### Migration Problems
 ```bash
-# Reset and rerun migrations
-npm run db:reset
-npm run db:migrate
+# Run the consolidated migration script
+cd migrations
+POSTGRES_PASSWORD=your_password node dist/migrate.js
+
+# For fresh database setup
+POSTGRES_PASSWORD=your_password SEED_LEVEL=essential node dist/migrate.js
 ```
+
+**Note**: The system uses a single consolidated migration that creates the complete schema with UUID primary keys. This approach was chosen since the application hasn't been released yet, eliminating the need for incremental migration history.
 
 ### Worker Communication Issues
 
@@ -547,7 +838,7 @@ npm run db:analyze
 ### Development Tools
 - VS Code with TypeScript extension
 - Node.js debugger
-- Database GUI tools (DB Browser for SQLite)
+- Database GUI tools (pgAdmin for PostgreSQL)
 
 ## Next Steps
 

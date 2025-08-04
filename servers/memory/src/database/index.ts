@@ -1,9 +1,9 @@
-// Memory Database Layer
+// Memory Database Layer (PostgreSQL only)
 // Database schema and operations for memory storage
 
 import { Kysely, sql } from 'kysely';
-import Database from 'better-sqlite3';
-import { SqliteDialect } from 'kysely';
+import { PostgresDialect } from 'kysely';
+import { Pool } from 'pg';
 import crypto from 'crypto';
 import type { DatabaseConfig } from '../types/index.js';
 
@@ -65,15 +65,30 @@ export class MemoryDatabase {
   private db: Kysely<Database>;
 
   constructor(private config: DatabaseConfig) {
-    // TODO: Add PostgreSQL dialect support
-    if (config.type === 'sqlite') {
-      const database = new Database(config.filename || './memory.db');
-      this.db = new Kysely<Database>({
-        dialect: new SqliteDialect({ database })
+    if (config.type !== 'postgres') {
+      throw new Error(`Only PostgreSQL is supported. Received: ${config.type}`);
+    }
+
+    let dialect;
+    if (config.connectionString) {
+      dialect = new PostgresDialect({
+        pool: new Pool({
+          connectionString: config.connectionString,
+        }),
       });
     } else {
-      throw new Error('PostgreSQL support not yet implemented');
+      dialect = new PostgresDialect({
+        pool: new Pool({
+          host: config.host,
+          port: config.port,
+          user: config.user,
+          password: config.password,
+          database: config.database,
+        }),
+      });
     }
+
+    this.db = new Kysely<Database>({ dialect });
   }
 
   async initialize(): Promise<void> {

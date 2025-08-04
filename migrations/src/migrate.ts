@@ -17,13 +17,12 @@ import type { SeedLevel } from './seeds/index.js';
 
 interface MigrationConfig {
   database: {
-    type: 'sqlite' | 'postgresql' | 'mysql';
-    host?: string;
-    port?: number;
-    database?: string;
-    username?: string;
-    password?: string;
-    filename?: string; // for SQLite
+    type: 'postgresql';
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password: string;
   };
   migrations: {
     directory: string;
@@ -39,13 +38,30 @@ interface MigrationConfig {
  * Parse environment variables into migration configuration
  */
 function parseConfig(): MigrationConfig {
-  const dbType = (process.env.DATABASE_TYPE || 'postgresql') as 'sqlite' | 'postgresql' | 'mysql';
   const seedLevel = (process.env.SEED_LEVEL || 'essential') as SeedLevel;
   const forceSeed = process.env.FORCE_SEED === 'true';
   
+  // Validate required PostgreSQL environment variables
+  const requiredEnvVars = {
+    POSTGRES_HOST: process.env.POSTGRES_HOST || 'localhost',
+    POSTGRES_PORT: process.env.POSTGRES_PORT || '5432',
+    POSTGRES_DB: process.env.POSTGRES_DB || 'mcp_tools',
+    POSTGRES_USER: process.env.POSTGRES_USER || 'postgres',
+    POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD
+  };
+
+  if (!requiredEnvVars.POSTGRES_PASSWORD) {
+    throw new Error('POSTGRES_PASSWORD environment variable is required');
+  }
+  
   const config: MigrationConfig = {
     database: {
-      type: dbType,
+      type: 'postgresql',
+      host: requiredEnvVars.POSTGRES_HOST,
+      port: parseInt(requiredEnvVars.POSTGRES_PORT),
+      database: requiredEnvVars.POSTGRES_DB,
+      username: requiredEnvVars.POSTGRES_USER,
+      password: requiredEnvVars.POSTGRES_PASSWORD
     },
     migrations: {
       directory: './dist/migrations',
@@ -56,38 +72,6 @@ function parseConfig(): MigrationConfig {
       force: forceSeed
     }
   };
-
-  // Database-specific configuration
-  switch (dbType) {
-    case 'postgresql':
-      config.database = {
-        ...config.database,
-        host: process.env.POSTGRES_HOST || 'localhost',
-        port: parseInt(process.env.POSTGRES_PORT || '5432'),
-        database: process.env.POSTGRES_DB || 'mcp_tools',
-        username: process.env.POSTGRES_USER || 'postgres',
-        password: process.env.POSTGRES_PASSWORD || 'password'
-      };
-      break;
-    
-    case 'mysql':
-      config.database = {
-        ...config.database,
-        host: process.env.MYSQL_HOST || 'localhost',
-        port: parseInt(process.env.MYSQL_PORT || '3306'),
-        database: process.env.MYSQL_DATABASE || 'mcp_tools',
-        username: process.env.MYSQL_USER || 'root',
-        password: process.env.MYSQL_PASSWORD || 'password'
-      };
-      break;
-    
-    case 'sqlite':
-      config.database = {
-        ...config.database,
-        filename: process.env.SQLITE_DATABASE || './mcp-tools.db'
-      };
-      break;
-  }
 
   return config;
 }
@@ -178,7 +162,9 @@ async function runMigrationProcess(): Promise<void> {
     
     // Parse configuration
     const config = parseConfig();
-    logger.info(`Database type: ${config.database.type}`);
+    logger.info('Database type: PostgreSQL');
+    logger.info(`PostgreSQL host: ${config.database.host}:${config.database.port}`);
+    logger.info(`Database: ${config.database.database}`);
     logger.info(`Seed level: ${config.seeds.level}`);
     if (config.seeds.force) {
       logger.info('Force seed mode enabled - will re-run existing seeds');

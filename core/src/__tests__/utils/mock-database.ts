@@ -23,6 +23,7 @@ export interface MockQueryResult<T = any> {
   deleteFrom: jest.Mock<any>;
   values: jest.Mock<any>;
   set: jest.Mock<any>;
+  limit: jest.Mock<any>;
 }
 
 export interface MockDeleteResult {
@@ -50,6 +51,7 @@ export function createMockQueryBuilder<T = any>(result?: T | T[]): MockQueryResu
     deleteFrom: jest.fn(),
     values: jest.fn(),
     set: jest.fn(),
+    limit: jest.fn(),
   };
 
   // Make all methods chainable
@@ -94,7 +96,7 @@ export function createMockKanbanDatabase(): jest.Mocked<KanbanDatabase> {
  */
 export const mockTestData = {
   board: {
-    id: 1,
+    id: '550e8400-e29b-41d4-a716-446655440000',
     name: 'Test Board',
     description: 'Test board description',
     color: '#6366f1',
@@ -103,8 +105,8 @@ export const mockTestData = {
   },
   
   column: {
-    id: 1,
-    board_id: 1,
+    id: '550e8400-e29b-41d4-a716-446655440001',
+    board_id: '550e8400-e29b-41d4-a716-446655440000',
     name: 'To Do',
     position: 0,
     color: '#ef4444',
@@ -113,9 +115,9 @@ export const mockTestData = {
   },
   
   card: {
-    id: 1,
-    board_id: 1,
-    column_id: 1,
+    id: '550e8400-e29b-41d4-a716-446655440002',
+    board_id: '550e8400-e29b-41d4-a716-446655440000',
+    column_id: '550e8400-e29b-41d4-a716-446655440001',
     title: 'Test Card',
     description: 'Test card description',
     position: 0,
@@ -127,7 +129,7 @@ export const mockTestData = {
   },
   
   tag: {
-    id: 1,
+    id: '550e8400-e29b-41d4-a716-446655440003',
     name: 'Test Tag',
     color: '#64748b',
     created_at: '2024-01-01T00:00:00.000Z',
@@ -135,8 +137,8 @@ export const mockTestData = {
   },
   
   comment: {
-    id: 1,
-    card_id: 1,
+    id: '550e8400-e29b-41d4-a716-446655440004',
+    card_id: '550e8400-e29b-41d4-a716-446655440002',
     content: 'Test comment',
     author: 'test-user',
     created_at: '2024-01-01T00:00:00.000Z',

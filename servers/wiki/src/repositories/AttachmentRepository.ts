@@ -3,13 +3,14 @@
  * Handles database operations for wiki attachments
  */
 
-import { Database } from 'sqlite3';
+import { Kysely } from 'kysely';
 import {
   WikiAttachment,
   AttachmentNotFoundError,
   AttachmentUploadInput,
   AttachmentUpdateInput
 } from '@mcp-tools/core';
+import type { Database } from '../database/index.js';
 
 export interface CreateAttachmentData {
   id: string;
@@ -25,80 +26,57 @@ export interface CreateAttachmentData {
 }
 
 export class AttachmentRepository {
-  constructor(private db: Database) {}
+  constructor(private db: Kysely<Database>) {}
 
   /**
    * Create a new attachment record
    */
   async create(data: CreateAttachmentData): Promise<WikiAttachment> {
-    return new Promise((resolve, reject) => {
-      const stmt = this.db.prepare(`
-        INSERT INTO wiki_attachments (
-          id, page_id, filename, original_name, mime_type, size_bytes,
-          storage_path, thumbnail_path, description, uploaded_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
+    const result = await this.db
+      .insertInto('wiki_attachments')
+      .values({
+        id: data.id,
+        page_id: data.page_id,
+        filename: data.filename,
+        original_name: data.original_name,
+        mime_type: data.mime_type,
+        size_bytes: data.size_bytes,
+        storage_path: data.storage_path,
+        thumbnail_path: data.thumbnail_path || null,
+        description: data.description || null,
+        uploaded_by: data.uploaded_by || null
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
-      stmt.run([
-        data.id,
-        data.page_id,
-        data.filename,
-        data.original_name,
-        data.mime_type,
-        data.size_bytes,
-        data.storage_path,
-        data.thumbnail_path || null,
-        data.description || null,
-        data.uploaded_by || null
-      ], function (err) {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        // Fetch the created attachment
-        stmt.finalize();
-        resolve(data as WikiAttachment);
-      });
-    });
+    return this.mapRowToAttachment(result);
   }
 
   /**
    * Get attachment by ID
    */
   async findById(id: string): Promise<WikiAttachment | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT * FROM wiki_attachments WHERE id = ?',
-        [id],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row ? this.mapRowToAttachment(row) : null);
-        }
-      );
-    });
+    const result = await this.db
+      .selectFrom('wiki_attachments')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    return result ? this.mapRowToAttachment(result) : null;
   }
 
   /**
    * Get all attachments for a page
    */
   async findByPageId(pageId: number): Promise<WikiAttachment[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM wiki_attachments WHERE page_id = ? ORDER BY uploaded_at DESC',
-        [pageId],
-        (err, rows: any[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAttachment(row)));
-        }
-      );
-    });
+    const results = await this.db
+      .selectFrom('wiki_attachments')
+      .selectAll()
+      .where('page_id', '=', pageId)
+      .orderBy('uploaded_at', 'desc')
+      .execute();
+
+    return results.map(row => this.mapRowToAttachment(row));
   }
 
   /**
@@ -110,107 +88,80 @@ export class AttachmentRepository {
       throw new AttachmentNotFoundError(id);
     }
 
-    return new Promise((resolve, reject) => {
-      const fields: string[] = [];
-      const values: any[] = [];
+    const updates: Partial<{
+      description: string | null;
+      original_name: string;
+    }> = {};
 
-      if (data.description !== undefined) {
-        fields.push('description = ?');
-        values.push(data.description);
-      }
+    if (data.description !== undefined) {
+      updates.description = data.description;
+    }
 
-      if (data.original_name !== undefined) {
-        fields.push('original_name = ?');
-        values.push(data.original_name);
-      }
+    if (data.original_name !== undefined) {
+      updates.original_name = data.original_name;
+    }
 
-      if (fields.length === 0) {
-        resolve(existing);
-        return;
-      }
+    if (Object.keys(updates).length === 0) {
+      return existing;
+    }
 
-      values.push(id);
+    const result = await this.db
+      .updateTable('wiki_attachments')
+      .set(updates)
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
-      this.db.run(
-        `UPDATE wiki_attachments SET ${fields.join(', ')} WHERE id = ?`,
-        values,
-        (err) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          // Fetch updated attachment
-          this.findById(id).then(resolve).catch(reject);
-        }
-      );
-    });
+    return this.mapRowToAttachment(result);
   }
 
   /**
    * Delete attachment record
    */
   async delete(id: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM wiki_attachments WHERE id = ?',
-        [id],
-        function (err) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(this.changes > 0);
-        }
-      );
-    });
+    const result = await this.db
+      .deleteFrom('wiki_attachments')
+      .where('id', '=', id)
+      .execute();
+
+    return result.length > 0 && Number(result[0].numDeletedRows) > 0;
   }
 
   /**
    * Get attachments by MIME type
    */
   async findByMimeType(mimeType: string): Promise<WikiAttachment[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        'SELECT * FROM wiki_attachments WHERE mime_type = ? ORDER BY uploaded_at DESC',
-        [mimeType],
-        (err, rows: any[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAttachment(row)));
-        }
-      );
-    });
+    const results = await this.db
+      .selectFrom('wiki_attachments')
+      .selectAll()
+      .where('mime_type', '=', mimeType)
+      .orderBy('uploaded_at', 'desc')
+      .execute();
+
+    return results.map(row => this.mapRowToAttachment(row));
   }
 
   /**
    * Search attachments by filename or description
    */
   async search(query: string, pageId?: number): Promise<WikiAttachment[]> {
-    return new Promise((resolve, reject) => {
-      let sql = `
-        SELECT * FROM wiki_attachments 
-        WHERE (original_name LIKE ? OR description LIKE ?)
-      `;
-      const params: any[] = [`%${query}%`, `%${query}%`];
+    let queryBuilder = this.db
+      .selectFrom('wiki_attachments')
+      .selectAll()
+      .where((eb) => eb.or([
+        eb('original_name', 'like', `%${query}%`),
+        eb('description', 'like', `%${query}%`)
+      ]));
 
-      if (pageId) {
-        sql += ' AND page_id = ?';
-        params.push(pageId);
-      }
+    if (pageId) {
+      queryBuilder = queryBuilder.where('page_id', '=', pageId);
+    }
 
-      sql += ' ORDER BY uploaded_at DESC';
+    const results = await queryBuilder
+      .orderBy('uploaded_at', 'desc')
+      .execute();
 
-      this.db.all(sql, params, (err, rows: any[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(rows.map(row => this.mapRowToAttachment(row)));
-      });
-    });
+    return results.map(row => this.mapRowToAttachment(row));
   }
 
   /**
@@ -235,58 +186,39 @@ export class AttachmentRepository {
    * Get all orphaned attachments (for cleanup)
    */
   async findOrphaned(): Promise<WikiAttachment[]> {
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        `SELECT a.* FROM wiki_attachments a 
-         LEFT JOIN pages p ON a.page_id = p.id 
-         WHERE p.id IS NULL`,
-        (err, rows: any[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map(row => this.mapRowToAttachment(row)));
-        }
-      );
-    });
+    const results = await this.db
+      .selectFrom('wiki_attachments as a')
+      .selectAll('a')
+      .leftJoin('pages as p', 'a.page_id', 'p.id')
+      .where('p.id', 'is', null)
+      .execute();
+
+    return results.map(row => this.mapRowToAttachment(row));
   }
 
   /**
    * Bulk delete attachments by page ID
    */
   async deleteByPageId(pageId: number): Promise<number> {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        'DELETE FROM wiki_attachments WHERE page_id = ?',
-        [pageId],
-        function (err) {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(this.changes);
-        }
-      );
-    });
+    const result = await this.db
+      .deleteFrom('wiki_attachments')
+      .where('page_id', '=', pageId)
+      .execute();
+
+    return result.length > 0 ? Number(result[0].numDeletedRows) : 0;
   }
 
   /**
    * Count attachments by page
    */
   async countByPageId(pageId: number): Promise<number> {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        'SELECT COUNT(*) as count FROM wiki_attachments WHERE page_id = ?',
-        [pageId],
-        (err, row: any) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(row.count);
-        }
-      );
-    });
+    const result = await this.db
+      .selectFrom('wiki_attachments')
+      .select((eb) => eb.fn.count('id').as('count'))
+      .where('page_id', '=', pageId)
+      .executeTakeFirstOrThrow();
+
+    return Number(result.count);
   }
 
   private mapRowToAttachment(row: any): WikiAttachment {

@@ -106,6 +106,7 @@ describe('KanbanService', () => {
 
         expect(mockDb.kysely.insertInto).toHaveBeenCalledWith('boards');
         expect(mockBoardQuery.values).toHaveBeenCalledWith({
+          id: expect.any(String),
           name: input.name,
           description: input.description,
           color: '#6366f1',
@@ -221,7 +222,7 @@ describe('KanbanService', () => {
     describe('createColumn', () => {
       it('should create column with provided values', async () => {
         const input = {
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           name: 'New Column',
           position: 2,
           color: '#ff0000'
@@ -234,6 +235,7 @@ describe('KanbanService', () => {
         const result = await service.createColumn(input);
 
         expect(mockQuery.values).toHaveBeenCalledWith({
+          id: expect.any(String),
           ...input,
           created_at: '2024-01-01T00:00:00.000Z',
           updated_at: '2024-01-01T00:00:00.000Z'
@@ -242,7 +244,7 @@ describe('KanbanService', () => {
       });
 
       it('should use default values for position and color', async () => {
-        const input = { board_id: 1, name: 'New Column' };
+        const input = { board_id: '550e8400-e29b-41d4-a716-446655440000', name: 'New Column' };
         const mockQuery = createMockQueryBuilder(mockTestData.column);
         mockDb.kysely.insertInto.mockReturnValue(mockQuery);
 
@@ -361,8 +363,8 @@ describe('KanbanService', () => {
     describe('createCard', () => {
       it('should create card with provided column_id', async () => {
         const input = {
-          board_id: 1,
-          column_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
+          column_id: '550e8400-e29b-41d4-a716-446655440001',
           title: 'New Card',
           description: 'Test description',
           priority: 'high' as const
@@ -376,8 +378,8 @@ describe('KanbanService', () => {
 
         expect(mockQuery.values).toHaveBeenCalledWith(
           expect.objectContaining({
-            board_id: 1,
-            column_id: 1,
+            board_id: '550e8400-e29b-41d4-a716-446655440000',
+            column_id: '550e8400-e29b-41d4-a716-446655440001',
             title: 'New Card',
             description: 'Test description',
             priority: 'high'
@@ -388,13 +390,13 @@ describe('KanbanService', () => {
 
       it('should find column by name when column_name provided', async () => {
         const input = {
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           column_name: 'To Do',
           title: 'New Card'
         };
         
         // Mock column lookup
-        const mockColumnQuery = createMockQueryBuilder({ id: 1 });
+        const mockColumnQuery = createMockQueryBuilder({ id: '550e8400-e29b-41d4-a716-446655440001' });
         mockDb.kysely.selectFrom.mockReturnValueOnce(mockColumnQuery);
         
         // Mock card creation
@@ -403,13 +405,13 @@ describe('KanbanService', () => {
 
         await service.createCard(input);
 
-        expect(mockColumnQuery.where).toHaveBeenCalledWith('board_id', '=', 1);
+        expect(mockColumnQuery.where).toHaveBeenCalledWith('board_id', '=', '550e8400-e29b-41d4-a716-446655440000');
         expect(mockColumnQuery.where).toHaveBeenCalledWith('name', '=', 'To Do');
       });
 
       it('should throw ValidationError when column_name not found', async () => {
         const input = {
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           column_name: 'Nonexistent Column',
           title: 'New Card'
         };
@@ -423,12 +425,12 @@ describe('KanbanService', () => {
 
       it('should use first column when no column specified', async () => {
         const input = {
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           title: 'New Card'
         };
         
         // Mock first column lookup
-        const mockColumnQuery = createMockQueryBuilder({ id: 1 });
+        const mockColumnQuery = createMockQueryBuilder({ id: '550e8400-e29b-41d4-a716-446655440001' });
         mockDb.kysely.selectFrom.mockReturnValueOnce(mockColumnQuery);
         
         // Mock card creation
@@ -442,7 +444,7 @@ describe('KanbanService', () => {
 
       it('should throw ValidationError when no columns exist', async () => {
         const input = {
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           title: 'New Card'
         };
         
@@ -454,7 +456,7 @@ describe('KanbanService', () => {
       });
 
       it('should use default values for optional fields', async () => {
-        const input = { board_id: 1, column_id: 1, title: 'New Card' };
+        const input = { board_id: '550e8400-e29b-41d4-a716-446655440000', column_id: '550e8400-e29b-41d4-a716-446655440001', title: 'New Card' };
         const mockQuery = createMockQueryBuilder(mockTestData.card);
         mockDb.kysely.insertInto.mockReturnValue(mockQuery);
 
@@ -525,7 +527,7 @@ describe('KanbanService', () => {
         const mockTagsQuery = createMockQueryBuilder([]);
         mockDb.kysely.selectFrom.mockReturnValue(mockTagsQuery);
 
-        const result = await service.moveCard(1, moveInput);
+        const result = await service.moveCard('550e8400-e29b-41d4-a716-446655440002', moveInput);
 
         expect(mockUpdateQuery.set).toHaveBeenCalledWith({
           column_id: 2,
@@ -545,7 +547,7 @@ describe('KanbanService', () => {
         mockDb.kysely.selectFrom.mockReturnValueOnce(mockCardQuery);
         
         // Mock column lookup
-        const mockColumnQuery = createMockQueryBuilder({ id: 4 });
+        const mockColumnQuery = createMockQueryBuilder({ id: '550e8400-e29b-41d4-a716-446655440004' });
         mockDb.kysely.selectFrom.mockReturnValueOnce(mockColumnQuery);
         
         // Mock update and tags queries
@@ -554,9 +556,9 @@ describe('KanbanService', () => {
         const mockTagsQuery = createMockQueryBuilder([]);
         mockDb.kysely.selectFrom.mockReturnValue(mockTagsQuery);
 
-        await service.moveCard(1, moveInput);
+        await service.moveCard('550e8400-e29b-41d4-a716-446655440002', moveInput);
 
-        expect(mockColumnQuery.where).toHaveBeenCalledWith('board_id', '=', 1);
+        expect(mockColumnQuery.where).toHaveBeenCalledWith('board_id', '=', '550e8400-e29b-41d4-a716-446655440000');
         expect(mockColumnQuery.where).toHaveBeenCalledWith('name', '=', 'Done');
       });
 
@@ -572,7 +574,7 @@ describe('KanbanService', () => {
         const mockColumnQuery = createMockQueryBuilder(undefined);
         mockDb.kysely.selectFrom.mockReturnValue(mockColumnQuery);
 
-        await expect(service.moveCard(1, moveInput))
+        await expect(service.moveCard('550e8400-e29b-41d4-a716-446655440002', moveInput))
           .rejects.toThrow(ValidationError);
       });
 
@@ -589,7 +591,7 @@ describe('KanbanService', () => {
         const mockTagsQuery = createMockQueryBuilder([]);
         mockDb.kysely.selectFrom.mockReturnValue(mockTagsQuery);
 
-        await service.moveCard(1, moveInput);
+        await service.moveCard('550e8400-e29b-41d4-a716-446655440002', moveInput);
 
         expect(mockUpdateQuery.set).toHaveBeenCalledWith({
           column_id: existingCard.column_id, // Should keep current column
@@ -632,7 +634,7 @@ describe('KanbanService', () => {
       it('should search cards by query with all filters', async () => {
         const searchInput = {
           query: 'test',
-          board_id: 1,
+          board_id: '550e8400-e29b-41d4-a716-446655440000',
           priority: 'high' as const,
           assigned_to: 'user1'
         };
@@ -647,7 +649,7 @@ describe('KanbanService', () => {
         const result = await service.searchCards(searchInput);
 
         expect(mockCardsQuery.where).toHaveBeenCalledWith('title', 'like', '%test%');
-        expect(mockCardsQuery.where).toHaveBeenCalledWith('board_id', '=', 1);
+        expect(mockCardsQuery.where).toHaveBeenCalledWith('board_id', '=', '550e8400-e29b-41d4-a716-446655440000');
         expect(mockCardsQuery.where).toHaveBeenCalledWith('priority', '=', 'high');
         expect(mockCardsQuery.where).toHaveBeenCalledWith('assigned_to', '=', 'user1');
         expect(mockCardsQuery.orderBy).toHaveBeenCalledWith('created_at', 'desc');
@@ -718,12 +720,13 @@ describe('KanbanService', () => {
         const mockQuery = createMockQueryBuilder();
         mockDb.kysely.insertInto.mockReturnValue(mockQuery);
 
-        await service.addCardTag(1, 1);
+        await service.addCardTag('550e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003');
 
         expect(mockDb.kysely.insertInto).toHaveBeenCalledWith('card_tags');
         expect(mockQuery.values).toHaveBeenCalledWith({
-          card_id: 1,
-          tag_id: 1,
+          id: expect.any(String),
+          card_id: '550e8400-e29b-41d4-a716-446655440002',
+          tag_id: '550e8400-e29b-41d4-a716-446655440003',
           created_at: '2024-01-01T00:00:00.000Z'
         });
       });
@@ -775,7 +778,7 @@ describe('KanbanService', () => {
     describe('addComment', () => {
       it('should add comment to card', async () => {
         const input = {
-          card_id: 1,
+          card_id: '550e8400-e29b-41d4-a716-446655440002',
           content: 'Test comment',
           author: 'test-user'
         };
@@ -787,6 +790,7 @@ describe('KanbanService', () => {
         const result = await service.addComment(input);
 
         expect(mockQuery.values).toHaveBeenCalledWith({
+          id: expect.any(String),
           ...input,
           created_at: '2024-01-01T00:00:00.000Z',
           updated_at: '2024-01-01T00:00:00.000Z'
@@ -795,7 +799,7 @@ describe('KanbanService', () => {
       });
 
       it('should use null author when not provided', async () => {
-        const input = { card_id: 1, content: 'Test comment' };
+        const input = { card_id: '550e8400-e29b-41d4-a716-446655440002', content: 'Test comment' };
         const mockQuery = createMockQueryBuilder(mockTestData.comment);
         mockDb.kysely.insertInto.mockReturnValue(mockQuery);
 

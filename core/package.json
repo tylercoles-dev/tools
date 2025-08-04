@@ -63,7 +63,6 @@
   "author": "MCP Tools Team",
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "glob": "^10.3.10",
     "gray-matter": "^4.0.3",
     "kysely": "^0.27.3",
@@ -77,7 +76,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
     "@types/glob": "^8.1.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.9",

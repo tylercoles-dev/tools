@@ -6,6 +6,8 @@
 
 This document provides comprehensive API specifications, schemas, and interface definitions for all components in the MCP Tools system.
 
+**Important**: All entity identifiers in the system use UUID strings for improved performance, distributed system compatibility, and security. UUIDs are generated using PostgreSQL's `gen_random_uuid()` function or Node.js `crypto.randomUUID()`.
+
 ## Common Schemas
 
 ### Base Types
@@ -13,10 +15,10 @@ This document provides comprehensive API specifications, schemas, and interface 
 ```typescript
 // Common types used across all services
 export interface BaseEntity {
-  id: string;
-  createdAt: string; // ISO 8601
-  updatedAt: string; // ISO 8601
-  createdBy?: string; // User ID
+  id: string;                    // UUID identifier
+  createdAt: string;             // ISO 8601
+  updatedAt: string;             // ISO 8601
+  createdBy?: string;            // UUID User ID
   metadata?: Record<string, any>;
 }
 
@@ -69,53 +71,53 @@ export interface CreateBoardArgs {
 }
 
 export interface CreateTaskArgs {
-  boardId: string;
+  boardId: string;               // UUID board identifier
   title: string;
   description?: string;
   status?: 'todo' | 'in_progress' | 'done';
   priority?: 'low' | 'medium' | 'high';
-  assigneeId?: string;
+  assigneeId?: string;           // UUID assignee identifier
   tags?: string[];
-  dueDate?: string; // ISO 8601
+  dueDate?: string;              // ISO 8601
   estimatedHours?: number;
 }
 
 export interface UpdateTaskArgs {
-  taskId: string;
+  taskId: string;                // UUID task identifier
   title?: string;
   description?: string;
   status?: 'todo' | 'in_progress' | 'done';
   priority?: 'low' | 'medium' | 'high';
-  assigneeId?: string;
+  assigneeId?: string;           // UUID assignee identifier
   tags?: string[];
   dueDate?: string;
   estimatedHours?: number;
 }
 
 export interface MoveTaskArgs {
-  taskId: string;
+  taskId: string;                // UUID task identifier
   newStatus: 'todo' | 'in_progress' | 'done';
-  position?: number; // Position within the column
+  position?: number;             // Position within the column
 }
 
 export interface AssignTaskArgs {
-  taskId: string;
-  assigneeId: string;
+  taskId: string;                // UUID task identifier
+  assigneeId: string;            // UUID assignee identifier
 }
 
 export interface AddCommentArgs {
-  taskId: string;
+  taskId: string;                // UUID task identifier
   content: string;
-  mentionedUsers?: string[];
+  mentionedUsers?: string[];     // UUID array of mentioned users
 }
 
 export interface GetBoardArgs {
-  boardId: string;
+  boardId: string;               // UUID board identifier
   includeArchived?: boolean;
 }
 
 export interface ListBoardsArgs extends PaginationParams {
-  ownerId?: string;
+  ownerId?: string;              // UUID owner identifier
   status?: 'active' | 'archived';
   searchQuery?: string;
 }
@@ -127,14 +129,14 @@ export interface ListBoardsArgs extends PaginationParams {
 export interface Board extends BaseEntity {
   name: string;
   description?: string;
-  ownerId: string;
+  ownerId: string;               // UUID owner identifier
   status: 'active' | 'archived';
   columns: Column[];
   settings: BoardSettings;
 }
 
 export interface Column {
-  id: string;
+  id: string;                    // UUID column identifier
   name: string;
   position: number;
   wipLimit?: number;
@@ -156,12 +158,12 @@ export interface NotificationSettings {
 }
 
 export interface Task extends BaseEntity {
-  boardId: string;
+  boardId: string;               // UUID board identifier
   title: string;
   description?: string;
   status: 'todo' | 'in_progress' | 'done';
   priority: 'low' | 'medium' | 'high';
-  assigneeId?: string;
+  assigneeId?: string;           // UUID assignee identifier
   assignee?: User;
   tags: string[];
   dueDate?: string;
@@ -175,24 +177,24 @@ export interface Task extends BaseEntity {
 }
 
 export interface Comment extends BaseEntity {
-  taskId: string;
+  taskId: string;                // UUID task identifier
   content: string;
-  authorId: string;
+  authorId: string;              // UUID author identifier
   author: User;
-  mentionedUsers: string[];
+  mentionedUsers: string[];      // UUID array of mentioned users
   edited: boolean;
   editedAt?: string;
 }
 
 export interface TaskDependency {
-  id: string;
-  dependentTaskId: string; // Task that depends on another
-  dependencyTaskId: string; // Task that must be completed first
+  id: string;                    // UUID dependency identifier
+  dependentTaskId: string;       // UUID task that depends on another
+  dependencyTaskId: string;      // UUID task that must be completed first
   type: 'blocks' | 'related';
 }
 
 export interface User {
-  id: string;
+  id: string;                    // UUID user identifier
   name: string;
   email: string;
   avatar?: string;

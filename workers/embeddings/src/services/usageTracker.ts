@@ -4,8 +4,8 @@
  */
 
 import { Kysely, sql } from 'kysely';
-import Database from 'better-sqlite3';
-import { SqliteDialect } from 'kysely';
+import { PostgresDialect } from 'kysely';
+import { Pool } from 'pg';
 import crypto from 'crypto';
 
 interface UsageTable {
@@ -24,31 +24,29 @@ interface UsageDatabase {
 export class UsageTracker {
   private db: Kysely<UsageDatabase>;
 
-  constructor(databasePath: string = './usage.db') {
-    const database = new Database(databasePath);
+  constructor(connectionString: string = process.env.DATABASE_URL || 'postgresql://mcp_user:mcp_password@localhost:5432/mcp_tools') {
+    const pool = new Pool({
+      connectionString,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+    
     this.db = new Kysely<UsageDatabase>({
-      dialect: new SqliteDialect({ database })
+      dialect: new PostgresDialect({ pool })
     });
     
     this.initialize();
   }
 
   private async initialize(): Promise<void> {
-    // Create usage tracking table
-    await this.db.schema
-      .createTable('usage_tracking')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('service', 'text', (col) => col.notNull())
-      .addColumn('operation', 'text', (col) => col.notNull())
-      .addColumn('tokens_used', 'integer')
-      .addColumn('cost_usd', 'real')
-      .addColumn('timestamp', 'text', (col) => col.notNull().defaultTo(sql`datetime('now')`))
-      .execute();
-
-    // Create indexes
-    await sql`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_tracking(timestamp)`.execute(this.db);
-    await sql`CREATE INDEX IF NOT EXISTS idx_usage_service ON usage_tracking(service)`.execute(this.db);
+    // Usage tracking table should be created by migrations
+    // This is just a connection test
+    try {
+      await this.db.selectFrom('usage_tracking').select('id').limit(1).execute();
+    } catch (error) {
+      console.warn('Usage tracking table not available. Ensure migrations have been run.');
+    }
   }
 
   async trackUsage(service: string, operation: string, tokensUsed?: number, costUsd?: number): Promise<void> {

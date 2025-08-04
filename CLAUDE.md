@@ -14,14 +14,16 @@ This is a comprehensive production-ready MCP (Model Context Protocol) ecosystem 
 - **Web Client** (React/Next.js) - Production-ready frontend with authentication and real-time collaboration
 - **Background Workers** (TypeScript) - Embeddings processing, document conversion, and analysis
 - **Core Services** (TypeScript) - Shared types, services, and utilities with comprehensive Zod validation
+- **Migration System** (TypeScript) - Centralized database schema management with UUID standardization
 
 ### Key Technologies
 - **TypeScript** - All services use strict TypeScript with shared type system
 - **MCP Protocol** - Model Context Protocol for AI tool integration
 - **Vector Search** - Qdrant for semantic search and embeddings
 - **Real-time** - WebSocket connections for live collaboration
-- **Databases** - SQLite (development), PostgreSQL (production)
+- **Databases** - PostgreSQL (production), with comprehensive UUID-based schema
 - **Bundling** - tsup for fast TypeScript compilation
+- **Migration System** - Kysely-based migrations with complete PostgreSQL support
 
 ## Monorepo Structure & Path Aliases
 
@@ -108,6 +110,15 @@ cd workers/markitdown
 npm install && npm run build && npm run dev
 ```
 
+### Database Migrations
+```bash
+cd migrations
+npm install           # Install migration dependencies
+npm run build        # Build migration system
+# Set PostgreSQL environment variables:
+POSTGRES_PASSWORD=password POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_DB=mcp_tools POSTGRES_USER=postgres node dist/migrate.js
+```
+
 ### Testing
 ```bash
 cd tests
@@ -126,13 +137,17 @@ npm run test:e2e     # End-to-end tests
 
 ### Type System Architecture
 - **Shared Types**: All TypeScript types defined in `core/src/shared/types/` with Zod validation
+- **UUID Consistency**: All ID fields use `string` type with `z.string().uuid()` validation
 - **Export Pattern**: Core package exports all types for consumption by other services
 - **Validation**: Runtime validation using Zod schemas for API boundaries
+- **Type Safety**: Strict TypeScript with no `any` types in production code
 
 ### Database Architecture  
-- **Multi-database Support**: SQLite (development), PostgreSQL (production), MySQL (alternative)
-- **Schema Management**: SQL schema files in each server's `database/` directory
-- **Migration System**: `npm run db:migrate` initializes database schemas
+- **PostgreSQL Primary**: Production database with UUID primary keys for performance
+- **Migration System**: Centralized Kysely-based migrations in `migrations/` directory
+- **UUID Standardization**: All tables use UUID primary keys with `gen_random_uuid()`
+- **Schema Management**: 10 comprehensive migrations handling all table schemas
+- **Performance Optimized**: Strategic indexes, jsonb columns, and foreign key constraints
 
 ### Real-time Updates
 - **WebSocket Integration**: Gateway provides WebSocket endpoints for live collaboration
@@ -195,10 +210,11 @@ src/
 ## Critical Notes
 
 - **Build Dependencies**: Core package must be built before other components
+- **UUID System**: All ID fields are strings (UUIDs) - never use `number` for IDs
+- **Database**: System uses PostgreSQL with centralized migrations - avoid individual server database layers
 - **Path Resolution**: Web client requires specific tsconfig.json configuration for module resolution
 - **MCP Protocol**: Servers implement MCP tools for AI integration - maintain tool schemas
 - **Real-time Features**: WebSocket connections require gateway to be running
-- **Database Support**: Multiple database types supported - configure via environment variables
 
 ## Troubleshooting
 
@@ -208,18 +224,45 @@ If you see module resolution errors:
 2. Check tsconfig.json path mappings
 3. For web client, verify both tsconfig.json and next.config.js configurations
 
+### Database Migration Issues
+- Ensure PostgreSQL is running and accessible
+- Set all required environment variables (POSTGRES_PASSWORD, POSTGRES_HOST, etc.)
+- Build migrations first: `cd migrations && npm run build`
+- Check migration logs for foreign key constraint errors
+
+### UUID Type Errors
+- Never use `number` types for IDs - all IDs are `string` (UUID format)
+- Use `z.string().uuid()` for all ID validation schemas
+- Use `crypto.randomUUID()` for generating new IDs
+- Foreign key references must match primary key types (both strings)
+
 ### MCP Server Connection Issues  
 - Verify MCP server is running on correct port
 - Check authentication credentials
-- Ensure database is initialized with `npm run db:migrate`
+- Ensure database is migrated: `cd migrations && node dist/migrate.js`
 
 ### Real-time Updates Not Working
 - Confirm gateway WebSocket server is running
 - Check WebSocket connection in browser developer tools
 - Verify authentication tokens are valid
 
+## Important Implementation Notes
+
+### Database Requirements
+- **PostgreSQL Only**: System exclusively supports PostgreSQL for production
+- **No SQLite Support**: Individual server database layers are deprecated
+- **Centralized Migrations**: All schema management through `migrations/` directory
+- **UUID Primary Keys**: Mandatory for all tables for distributed performance
+
+### Core Package Architecture
+- **Build-time Dependency**: Core package built and referenced at build time, not runtime
+- **Shared Types Only**: Core serves as type definitions and build-time utilities
+- **No Runtime Core Service**: Services implement logic independently using shared types
+- **Build Order Critical**: Core must be built before dependent packages
+
 ## Tooling Notes
-- Use @docs\TECHNICAL_DEBT.md as a tracking file for work items
+- Use `docs/TECHNICAL_DEBT.md` as a tracking file for work items
+- All technical debt has been resolved as of January 2025
 
 ## Project Collaboration Strategy
 

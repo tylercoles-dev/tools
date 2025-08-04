@@ -8,7 +8,7 @@ import type { DatabaseConfig } from '../../utils/database.js';
 
 // Database schema interfaces - separate types for inserts vs selects
 interface BoardTable {
-  id: Generated<number>;
+  id: Generated<string>;
   name: string;
   description: string | null;
   color: string;
@@ -17,8 +17,8 @@ interface BoardTable {
 }
 
 interface ColumnTable {
-  id: Generated<number>;
-  board_id: number;
+  id: Generated<string>;
+  board_id: string;
   name: string;
   position: number;
   color: string;
@@ -27,9 +27,9 @@ interface ColumnTable {
 }
 
 interface CardTable {
-  id: Generated<number>;
-  board_id: number;
-  column_id: number;
+  id: Generated<string>;
+  board_id: string;
+  column_id: string;
   title: string;
   description: string | null;
   position: number;
@@ -41,7 +41,7 @@ interface CardTable {
 }
 
 interface TagTable {
-  id: Generated<number>;
+  id: Generated<string>;
   name: string;
   color: string;
   created_at: string;
@@ -49,8 +49,8 @@ interface TagTable {
 }
 
 interface CommentTable {
-  id: Generated<number>;
-  card_id: number;
+  id: Generated<string>;
+  card_id: string;
   content: string;
   author: string | null;
   created_at: string;
@@ -58,9 +58,9 @@ interface CommentTable {
 }
 
 interface CardActivityTable {
-  id: Generated<number>;
-  card_id: number;
-  board_id: number;
+  id: Generated<string>;
+  card_id: string;
+  board_id: string;
   action_type: string;
   user_id: string | null;
   user_name: string | null;
@@ -71,18 +71,34 @@ interface CardActivityTable {
   created_at: string;
 }
 
+interface TimeEntryTable {
+  id: Generated<string>;
+  card_id: string;
+  user_name: string | null;
+  description: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_minutes: number | null;
+  is_billable: number; // SQLite uses integer for boolean
+  hourly_rate: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface KanbanDatabase {
   boards: BoardTable;
   columns: ColumnTable;
   cards: CardTable;
   tags: TagTable;
   card_tags: {
-    card_id: number;
-    tag_id: number;
+    id: Generated<string>;
+    card_id: string;
+    tag_id: string;
     created_at: string;
   };
   comments: CommentTable;
   card_activities: CardActivityTable;
+  time_entries: TimeEntryTable;
 }
 
 export class KanbanDatabase {
@@ -115,7 +131,7 @@ export class KanbanDatabase {
     const boardsQuery = this.db.schema
       .createTable('boards')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
+      .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('description', 'text')
       .addColumn('color', 'text', (col) => col.notNull().defaultTo('#6366f1'))
@@ -132,8 +148,8 @@ export class KanbanDatabase {
     await this.db.schema
       .createTable('columns')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
-      .addColumn('board_id', 'integer', (col) => col.notNull())
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('board_id', 'text', (col) => col.notNull())
       .addColumn('name', 'text', (col) => col.notNull())
       .addColumn('position', 'integer', (col) => col.notNull().defaultTo(0))
       .addColumn('color', 'text', (col) => col.notNull().defaultTo('#64748b'))
@@ -145,9 +161,9 @@ export class KanbanDatabase {
     await this.db.schema
       .createTable('cards')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
-      .addColumn('board_id', 'integer', (col) => col.notNull())
-      .addColumn('column_id', 'integer', (col) => col.notNull())
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('board_id', 'text', (col) => col.notNull())
+      .addColumn('column_id', 'text', (col) => col.notNull())
       .addColumn('title', 'text', (col) => col.notNull())
       .addColumn('description', 'text')
       .addColumn('position', 'integer', (col) => col.notNull().defaultTo(0))
@@ -162,7 +178,7 @@ export class KanbanDatabase {
     await this.db.schema
       .createTable('tags')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
+      .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('name', 'text', (col) => col.notNull().unique())
       .addColumn('color', 'text', (col) => col.notNull().defaultTo('#64748b'))
       .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
@@ -173,18 +189,19 @@ export class KanbanDatabase {
     await this.db.schema
       .createTable('card_tags')
       .ifNotExists()
-      .addColumn('card_id', 'integer', (col) => col.notNull())
-      .addColumn('tag_id', 'integer', (col) => col.notNull())
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('card_id', 'text', (col) => col.notNull())
+      .addColumn('tag_id', 'text', (col) => col.notNull())
       .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
-      .addPrimaryKeyConstraint('primary_key', ['card_id', 'tag_id'])
+      .addUniqueConstraint('unique_card_tag', ['card_id', 'tag_id'])
       .execute();
 
     // Create comments table
     await this.db.schema
       .createTable('comments')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
-      .addColumn('card_id', 'integer', (col) => col.notNull())
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('card_id', 'text', (col) => col.notNull())
       .addColumn('content', 'text', (col) => col.notNull())
       .addColumn('author', 'text')
       .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
@@ -195,9 +212,9 @@ export class KanbanDatabase {
     await this.db.schema
       .createTable('card_activities')
       .ifNotExists()
-      .addColumn('id', 'integer', (col) => col.primaryKey())
-      .addColumn('card_id', 'integer', (col) => col.notNull())
-      .addColumn('board_id', 'integer', (col) => col.notNull())
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('card_id', 'text', (col) => col.notNull())
+      .addColumn('board_id', 'text', (col) => col.notNull())
       .addColumn('action_type', 'text', (col) => col.notNull())
       .addColumn('user_id', 'text')
       .addColumn('user_name', 'text')
@@ -206,6 +223,23 @@ export class KanbanDatabase {
       .addColumn('new_values', 'text')
       .addColumn('timestamp', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
       .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .execute();
+
+    // Create time_entries table
+    await this.db.schema
+      .createTable('time_entries')
+      .ifNotExists()
+      .addColumn('id', 'text', (col) => col.primaryKey())
+      .addColumn('card_id', 'text', (col) => col.notNull())
+      .addColumn('user_name', 'text')
+      .addColumn('description', 'text')
+      .addColumn('start_time', 'text')
+      .addColumn('end_time', 'text')
+      .addColumn('duration_minutes', 'integer')
+      .addColumn('is_billable', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('hourly_rate', 'real')
+      .addColumn('created_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+      .addColumn('updated_at', 'text', (col) => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
       .execute();
 
     // Create indexes
@@ -256,6 +290,20 @@ export class KanbanDatabase {
       .ifNotExists()
       .on('card_activities')
       .columns(['timestamp'])
+      .execute();
+    
+    await this.db.schema
+      .createIndex('idx_time_entries_card_id')
+      .ifNotExists()
+      .on('time_entries')
+      .columns(['card_id'])
+      .execute();
+    
+    await this.db.schema
+      .createIndex('idx_time_entries_start_time')
+      .ifNotExists()
+      .on('time_entries')
+      .columns(['start_time'])
       .execute();
   }
 

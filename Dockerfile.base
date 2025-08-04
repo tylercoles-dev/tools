@@ -1,0 +1,37 @@
+# Base image for MCP Tools services with PostgreSQL support
+FROM node:22-alpine AS base
+
+# Install system dependencies for PostgreSQL and Node.js compilation
+RUN apk add --no-cache \
+    libc6-compat \
+    curl \
+    python3 \
+    make \
+    g++ \
+    postgresql-client \
+    && ln -sf python3 /usr/bin/python
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 appuser
+
+# Copy and build core package (shared dependency)
+COPY core/package*.json ./core/
+COPY core/tsconfig.json ./core/
+COPY core/tsup.config.ts ./core/
+
+# Install core dependencies with production flag to skip dev deps like Puppeteer
+RUN cd core && npm install --production
+
+# Copy core source and build
+COPY core/src ./core/src
+RUN cd core && npm run build
+
+# Create symlink structure for @mcp-tools/core
+RUN mkdir -p node_modules/@mcp-tools && \
+    ln -sf ../../core node_modules/@mcp-tools/core
+
+# Default CMD (can be overridden)
+CMD ["npm", "start"]

@@ -1048,7 +1048,7 @@ database_path=./data/mcptools.db
 \`\`\`
 
 For more information, see [[Database Migration Guide]].`,
-    tags: ['database', 'configuration', 'postgresql', 'mysql', 'sqlite'],
+    tags: ['database', 'configuration', 'postgresql'],
     category: 'guides',
     isPublished: true
   },
@@ -1111,7 +1111,7 @@ Set up your local development environment.
 
 ### Required Software
 - Node.js 18+ with npm
-- PostgreSQL 14+ (or MySQL 8+/SQLite)
+- PostgreSQL 14+
 - Git for version control
 - Docker (optional, for containerized development)
 

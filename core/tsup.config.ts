@@ -8,6 +8,7 @@ export default defineConfig({
     'src/services/memory-processing/index.ts',
     'src/services/wiki/index.ts',
     'src/services/scraper/index.ts',
+    'src/services/quality/index.ts',
     'src/shared/types/index.ts'
   ],
   format: ['esm'],
@@ -25,7 +26,6 @@ export default defineConfig({
   },
   external: [
     // External dependencies should not be bundled
-    'better-sqlite3',
     'pg',
     'kysely',
     'marked',

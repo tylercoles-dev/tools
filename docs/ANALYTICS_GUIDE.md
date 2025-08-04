@@ -4,6 +4,8 @@
 
 The MCP Tools Analytics system provides comprehensive insights into your productivity patterns through advanced data collection, AI-powered analysis, and predictive forecasting. This guide covers everything from basic usage to advanced configuration.
 
+**Important**: The analytics system uses PostgreSQL-only architecture with UUID primary keys for all entities and events. UUIDs provide better performance for distributed analytics processing and improved security for tracking identifiers.
+
 ## 🎯 Key Features
 
 ### 📈 Real-time Analytics
@@ -146,9 +148,9 @@ await analyticsService.trainModels(userId);
 
 ```typescript
 interface AnalyticsEvent {
-  id: string;
-  userId: string;
-  sessionId: string;
+  id: string;                    // UUID event identifier
+  userId: string;                // UUID user identifier
+  sessionId: string;             // UUID session identifier
   eventType: 'page_view' | 'action' | 'feature_use' | 'error' | 'performance';
   eventCategory: 'kanban' | 'wiki' | 'memory' | 'auth' | 'dashboard' | 'system';
   eventAction: string;
@@ -165,7 +167,7 @@ interface AnalyticsEvent {
 
 ```typescript
 interface TaskCompletionPrediction {
-  taskId?: string;
+  taskId?: string;               // UUID task identifier
   estimatedCompletion: Date;
   confidence: number;
   factors: {

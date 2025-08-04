@@ -145,14 +145,14 @@ export interface MergeMemoriesArgs {
   strategy: 'combine_content' | 'preserve_primary' | 'create_summary';
 }
 
-// Database Configuration
+// Database Configuration (PostgreSQL only)
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres';
-  filename?: string; // for SQLite
+  type: 'postgres';
+  connectionString?: string;
   host?: string;
   port?: number;
   database?: string;
-  username?: string;
+  user?: string;
   password?: string;
 }
 

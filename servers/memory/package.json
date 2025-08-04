@@ -13,7 +13,7 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "db:migrate": "node -e \"import('./dist/database/index.js').then(m => new m.MemoryDatabase({ type: 'sqlite', filename: './memory.db' }).initialize())\""
+    "db:migrate": "echo 'Migration handled by dedicated migration service'"
   },
   "keywords": [
     "mcp",
@@ -31,7 +31,6 @@
     "@mcp-tools/core": "file:../../core",
     "@tylercoles/mcp-server": "0.2.2",
     "@tylercoles/mcp-transport-http": "0.2.2",
-    "better-sqlite3": "^9.2.2",
     "kysely": "^0.27.3",
     "pg": "^8.11.3",
     "uuid": "^10.0.0",
@@ -39,7 +38,6 @@
     "nats": "^2.29.3"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "@types/uuid": "^10.0.0",

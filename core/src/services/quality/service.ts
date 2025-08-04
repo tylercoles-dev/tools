@@ -44,7 +44,9 @@ export class QualityService {
 
   constructor(config: QualityServiceConfig) {
     this.config = config;
-    this.db = new QualityDatabase(config.databasePath);
+    this.db = new QualityDatabase(
+      config.databasePath ? { database: config.databasePath } : undefined
+    );
     
     // Initialize scanners with config
     this.debtScanner = new TechnicalDebtScanner(config.scanners.technicalDebt || {});

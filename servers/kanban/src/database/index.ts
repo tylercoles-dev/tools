@@ -1,15 +1,12 @@
 import { Kysely, sql } from 'kysely';
-import { SqliteDialect } from 'kysely';
 import { PostgresDialect } from 'kysely';
-import { MysqlDialect } from 'kysely';
-import { default as SQLiteDb } from 'better-sqlite3';
 import { Pool } from 'pg';
-import { createPool } from 'mysql2';
+import { randomUUID } from 'crypto';
 // Database setup is now handled by the dedicated migration service
 
 // Database schema types
 export interface Board {
-  id?: number;
+  id?: string;
   name: string;
   description: string | null;
   created_at: string;
@@ -18,8 +15,8 @@ export interface Board {
 }
 
 export interface Column {
-  id?: number;
-  board_id: number;
+  id?: string;
+  board_id: string;
   name: string;
   position: number;
   color: string;
@@ -27,9 +24,9 @@ export interface Column {
 }
 
 export interface Card {
-  id?: number;
-  board_id: number;
-  column_id: number;
+  id?: string;
+  board_id: string;
+  column_id: string;
   title: string;
   description: string | null;
   position: number;
@@ -41,20 +38,20 @@ export interface Card {
 }
 
 export interface Tag {
-  id?: number;
+  id?: string;
   name: string;
   color: string;
   created_at: string;
 }
 
 export interface CardTag {
-  card_id: number;
-  tag_id: number;
+  card_id: string;
+  tag_id: string;
 }
 
 export interface Comment {
-  id?: number;
-  card_id: number;
+  id?: string;
+  card_id: string;
   content: string;
   author: string | null;
   created_at: string;
@@ -69,73 +66,42 @@ export interface Database {
   comments: Comment;
 }
 
-// Database configuration
+// Database configuration (PostgreSQL only)
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres' | 'mysql';
+  type: 'postgres';
   connectionString?: string;
   host?: string;
   port?: number;
   user?: string;
   password?: string;
   database?: string;
-  filename?: string; // for SQLite
 }
 
 export class KanbanDatabase {
   private db: Kysely<Database>;
-  private dbType: string;
 
   constructor(config: DatabaseConfig) {
-    this.dbType = config.type;
+    if (config.type !== 'postgres') {
+      throw new Error(`Only PostgreSQL is supported. Received: ${config.type}`);
+    }
+
     let dialect;
-
-    switch (config.type) {
-      case 'sqlite':
-        dialect = new SqliteDialect({
-          database: new SQLiteDb(config.filename || ':memory:'),
-        });
-        break;
-
-      case 'postgres':
-        if (config.connectionString) {
-          dialect = new PostgresDialect({
-            pool: new Pool({
-              connectionString: config.connectionString,
-            }),
-          });
-        } else {
-          dialect = new PostgresDialect({
-            pool: new Pool({
-              host: config.host,
-              port: config.port,
-              user: config.user,
-              password: config.password,
-              database: config.database,
-            }),
-          });
-        }
-        break;
-
-      case 'mysql':
-        if (config.connectionString) {
-          dialect = new MysqlDialect({
-            pool: createPool(config.connectionString),
-          });
-        } else {
-          dialect = new MysqlDialect({
-            pool: createPool({
-              host: config.host,
-              port: config.port,
-              user: config.user,
-              password: config.password,
-              database: config.database,
-            }),
-          });
-        }
-        break;
-
-      default:
-        throw new Error(`Unsupported database type: ${config.type}`);
+    if (config.connectionString) {
+      dialect = new PostgresDialect({
+        pool: new Pool({
+          connectionString: config.connectionString,
+        }),
+      });
+    } else {
+      dialect = new PostgresDialect({
+        pool: new Pool({
+          host: config.host,
+          port: config.port,
+          user: config.user,
+          password: config.password,
+          database: config.database,
+        }),
+      });
     }
 
     this.db = new Kysely<Database>({ dialect });
@@ -161,7 +127,7 @@ export class KanbanDatabase {
     return await this.db.selectFrom('boards').selectAll().execute();
   }
 
-  async getBoardById(id: number): Promise<Board | undefined> {
+  async getBoardById(id: string): Promise<Board | undefined> {
     return await this.db
       .selectFrom('boards')
       .where('id', '=', id)
@@ -169,21 +135,22 @@ export class KanbanDatabase {
       .executeTakeFirst();
   }
 
-  async createBoard(board: Omit<Board, 'id' | 'created_at' | 'updated_at'>): Promise<Board & { id: number }> {
+  async createBoard(board: Omit<Board, 'id' | 'created_at' | 'updated_at'>): Promise<Board & { id: string }> {
     const result = await this.db
       .insertInto('boards')
       .values({
         ...board,
+        id: randomUUID(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return result as Board & { id: number };
+    return result as Board & { id: string };
   }
 
-  async updateBoard(id: number, updates: Partial<Omit<Board, 'id' | 'created_at'>>): Promise<Board | undefined> {
+  async updateBoard(id: string, updates: Partial<Omit<Board, 'id' | 'created_at'>>): Promise<Board | undefined> {
     const result = await this.db
       .updateTable('boards')
       .set({
@@ -197,7 +164,7 @@ export class KanbanDatabase {
     return result;
   }
 
-  async deleteBoard(id: number): Promise<boolean> {
+  async deleteBoard(id: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('boards')
       .where('id', '=', id)
@@ -207,7 +174,7 @@ export class KanbanDatabase {
   }
 
   // Column operations
-  async getColumnsByBoard(boardId: number): Promise<Column[]> {
+  async getColumnsByBoard(boardId: string): Promise<Column[]> {
     return await this.db
       .selectFrom('columns')
       .where('board_id', '=', boardId)
@@ -216,7 +183,7 @@ export class KanbanDatabase {
       .execute();
   }
 
-  async getColumn(id: number): Promise<Column | undefined> {
+  async getColumn(id: string): Promise<Column | undefined> {
     const result = await this.db
       .selectFrom('columns')
       .selectAll()
@@ -226,20 +193,21 @@ export class KanbanDatabase {
     return result as Column | undefined;
   }
 
-  async createColumn(column: Omit<Column, 'id' | 'created_at'>): Promise<Column & { id: number }> {
+  async createColumn(column: Omit<Column, 'id' | 'created_at'>): Promise<Column & { id: string }> {
     const result = await this.db
       .insertInto('columns')
       .values({
         ...column,
+        id: randomUUID(),
         created_at: new Date().toISOString(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return result as Column & { id: number };
+    return result as Column & { id: string };
   }
 
-  async updateColumn(id: number, updates: Partial<Omit<Column, 'id' | 'created_at'>>): Promise<Column | undefined> {
+  async updateColumn(id: string, updates: Partial<Omit<Column, 'id' | 'created_at'>>): Promise<Column | undefined> {
     const result = await this.db
       .updateTable('columns')
       .set(updates)
@@ -250,7 +218,7 @@ export class KanbanDatabase {
     return result;
   }
 
-  async deleteColumn(id: number): Promise<boolean> {
+  async deleteColumn(id: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('columns')
       .where('id', '=', id)
@@ -260,7 +228,7 @@ export class KanbanDatabase {
   }
 
   // Card operations
-  async getCardsByColumn(columnId: number): Promise<Card[]> {
+  async getCardsByColumn(columnId: string): Promise<Card[]> {
     return await this.db
       .selectFrom('cards')
       .where('column_id', '=', columnId)
@@ -269,7 +237,7 @@ export class KanbanDatabase {
       .execute();
   }
 
-  async getCardsByBoard(boardId: number): Promise<Card[]> {
+  async getCardsByBoard(boardId: string): Promise<Card[]> {
     return await this.db
       .selectFrom('cards')
       .where('board_id', '=', boardId)
@@ -278,7 +246,7 @@ export class KanbanDatabase {
       .execute();
   }
 
-  async getCardById(id: number): Promise<Card | undefined> {
+  async getCardById(id: string): Promise<Card | undefined> {
     return await this.db
       .selectFrom('cards')
       .where('id', '=', id)
@@ -286,21 +254,22 @@ export class KanbanDatabase {
       .executeTakeFirst();
   }
 
-  async createCard(card: Omit<Card, 'id' | 'created_at' | 'updated_at'>): Promise<Card & { id: number }> {
+  async createCard(card: Omit<Card, 'id' | 'created_at' | 'updated_at'>): Promise<Card & { id: string }> {
     const result = await this.db
       .insertInto('cards')
       .values({
         ...card,
+        id: randomUUID(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return result as Card & { id: number };
+    return result as Card & { id: string };
   }
 
-  async updateCard(id: number, updates: Partial<Omit<Card, 'id' | 'created_at'>>): Promise<Card | undefined> {
+  async updateCard(id: string, updates: Partial<Omit<Card, 'id' | 'created_at'>>): Promise<Card | undefined> {
     const result = await this.db
       .updateTable('cards')
       .set({
@@ -314,14 +283,14 @@ export class KanbanDatabase {
     return result;
   }
 
-  async moveCard(cardId: number, newColumnId: number, newPosition: number): Promise<Card | undefined> {
+  async moveCard(cardId: string, newColumnId: string, newPosition: number): Promise<Card | undefined> {
     return await this.updateCard(cardId, {
       column_id: newColumnId,
       position: newPosition,
     });
   }
 
-  async deleteCard(id: number): Promise<boolean> {
+  async deleteCard(id: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('cards')
       .where('id', '=', id)
@@ -335,7 +304,7 @@ export class KanbanDatabase {
     return await this.db.selectFrom('tags').selectAll().execute();
   }
 
-  async getCardTags(cardId: number): Promise<Tag[]> {
+  async getCardTags(cardId: string): Promise<Tag[]> {
     return await this.db
       .selectFrom('tags')
       .innerJoin('card_tags', 'tags.id', 'card_tags.tag_id')
@@ -344,14 +313,14 @@ export class KanbanDatabase {
       .execute();
   }
 
-  async addCardTag(cardId: number, tagId: number): Promise<void> {
+  async addCardTag(cardId: string, tagId: string): Promise<void> {
     await this.db
       .insertInto('card_tags')
       .values({ card_id: cardId, tag_id: tagId })
       .execute();
   }
 
-  async removeCardTag(cardId: number, tagId: number): Promise<boolean> {
+  async removeCardTag(cardId: string, tagId: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('card_tags')
       .where('card_id', '=', cardId)
@@ -361,21 +330,22 @@ export class KanbanDatabase {
     return Number(result.numDeletedRows) > 0;
   }
 
-  async createTag(tag: Omit<Tag, 'id' | 'created_at'>): Promise<Tag & { id: number }> {
+  async createTag(tag: Omit<Tag, 'id' | 'created_at'>): Promise<Tag & { id: string }> {
     const result = await this.db
       .insertInto('tags')
       .values({
         ...tag,
+        id: randomUUID(),
         created_at: new Date().toISOString(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return result as Tag & { id: number };
+    return result as Tag & { id: string };
   }
 
   // Comment operations
-  async getCardComments(cardId: number): Promise<Comment[]> {
+  async getCardComments(cardId: string): Promise<Comment[]> {
     return await this.db
       .selectFrom('comments')
       .where('card_id', '=', cardId)
@@ -384,20 +354,21 @@ export class KanbanDatabase {
       .execute();
   }
 
-  async addComment(comment: Omit<Comment, 'id' | 'created_at'>): Promise<Comment & { id: number }> {
+  async addComment(comment: Omit<Comment, 'id' | 'created_at'>): Promise<Comment & { id: string }> {
     const result = await this.db
       .insertInto('comments')
       .values({
         ...comment,
+        id: randomUUID(),
         created_at: new Date().toISOString(),
       })
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return result as Comment & { id: number };
+    return result as Comment & { id: string };
   }
 
-  async deleteComment(id: number): Promise<boolean> {
+  async deleteComment(id: string): Promise<boolean> {
     const result = await this.db
       .deleteFrom('comments')
       .where('id', '=', id)

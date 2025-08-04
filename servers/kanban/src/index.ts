@@ -2,7 +2,7 @@
 
 import { MCPServer, LogLevel } from '@tylercoles/mcp-server';
 import { HttpTransport } from '@tylercoles/mcp-transport-http';
-import { KanbanService, KanbanDatabase } from '@mcp-tools/core/kanban';
+import { KanbanService, KanbanDatabase } from '@mcp-tools/core';
 import { registerTools } from './tools/index.js';
 import { KanbanWebSocketServer } from './websocket-server.js';
 import path from 'path';
@@ -10,22 +10,19 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Configuration
+// Configuration (PostgreSQL only)
 const config = {
   port: parseInt(process.env.PORT || '8193'),
   wsPort: parseInt(process.env.WS_PORT || '8194'),
   host: process.env.HOST || 'localhost',
   database: {
-    type: (process.env.DB_TYPE as 'sqlite' | 'postgres') || 'sqlite',
-    file: process.env.DB_FILE || path.join(__dirname, '../kanban.db'),
+    type: 'postgresql' as const,
     connectionString: process.env.DATABASE_URL,
-    config: {
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-    }
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
   },
 };
 
@@ -72,7 +69,7 @@ async function createKanbanServer() {
     description: 'List of all kanban boards',
     mimeType: 'application/json',
   }, async () => {
-    const boards = await kanbanService.getBoards();
+    const boards = await kanbanService.getAllBoards();
     return {
       contents: [{
         uri: 'kanban://boards',
@@ -94,7 +91,7 @@ async function createKanbanServer() {
     }
 
     const boardId = parseInt(match[1]);
-    const board = await kanbanService.getBoard(boardId);
+    const board = await kanbanService.getBoardById(boardId);
     if (!board) {
       throw new Error(`Board ${boardId} not found`);
     }
@@ -139,7 +136,7 @@ async function createKanbanServer() {
     }
 
     const cardId = parseInt(match[1]);
-    const cardData = await kanbanService.getCardDetails(cardId);
+    const cardData = await kanbanService.getCardById(cardId);
     if (!cardData) {
       throw new Error(`Card ${cardId} not found`);
     }
@@ -183,7 +180,7 @@ async function createKanbanServer() {
     description: 'Recent changes and activities across all boards',
     mimeType: 'application/json',
   }, async () => {
-    const activityData = await kanbanService.getRecentActivity(50);
+    const activityData = await kanbanService.getBoardActivity(0, 50); // Get activity for all boards
 
     return {
       contents: [{

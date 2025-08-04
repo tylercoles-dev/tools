@@ -10,7 +10,7 @@ export type Priority = z.infer<typeof PrioritySchema>;
 
 // Database entity interfaces
 export interface Board {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   color: string;
@@ -19,8 +19,8 @@ export interface Board {
 }
 
 export interface Column {
-  id: number;
-  board_id: number;
+  id: string;
+  board_id: string;
   name: string;
   position: number;
   color: string;
@@ -29,9 +29,9 @@ export interface Column {
 }
 
 export interface Card {
-  id: number;
-  board_id: number;
-  column_id: number;
+  id: string;
+  board_id: string;
+  column_id: string;
   title: string;
   description: string | null;
   position: number;
@@ -43,7 +43,7 @@ export interface Card {
 }
 
 export interface Tag {
-  id: number;
+  id: string;
   name: string;
   color: string;
   created_at: string;
@@ -51,10 +51,24 @@ export interface Tag {
 }
 
 export interface Comment {
-  id: number;
-  card_id: number;
+  id: string;
+  card_id: string;
   content: string;
   author: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  card_id: string;
+  user_name: string | null;
+  description: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_minutes: number | null;
+  is_billable: boolean;
+  hourly_rate: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -64,8 +78,8 @@ export const CustomFieldTypeSchema = z.enum(['text', 'number', 'date', 'dropdown
 export type CustomFieldType = z.infer<typeof CustomFieldTypeSchema>;
 
 export interface CustomField {
-  id: number;
-  board_id: number;
+  id: string;
+  board_id: string;
   name: string;
   field_type: CustomFieldType;
   is_required: boolean;
@@ -77,9 +91,9 @@ export interface CustomField {
 }
 
 export interface CustomFieldValue {
-  id: number;
-  card_id: number;
-  custom_field_id: number;
+  id: string;
+  card_id: string;
+  custom_field_id: string;
   value: string | null;
   created_at: string;
   updated_at: string;
@@ -87,8 +101,8 @@ export interface CustomFieldValue {
 
 // Milestones
 export interface Milestone {
-  id: number;
-  board_id: number;
+  id: string;
+  board_id: string;
   name: string;
   description: string | null;
   due_date: string | null;
@@ -102,9 +116,9 @@ export interface Milestone {
 
 // Subtasks
 export interface Subtask {
-  id: number;
-  card_id: number;
-  parent_subtask_id: number | null;
+  id: string;
+  card_id: string;
+  parent_subtask_id: string | null;
   title: string;
   description: string | null;
   is_completed: boolean;
@@ -121,9 +135,9 @@ export const CardLinkTypeSchema = z.enum(['blocks', 'relates_to', 'duplicate', '
 export type CardLinkType = z.infer<typeof CardLinkTypeSchema>;
 
 export interface CardLink {
-  id: number;
-  source_card_id: number;
-  target_card_id: number;
+  id: string;
+  source_card_id: string;
+  target_card_id: string;
   link_type: CardLinkType;
   description: string | null;
   created_at: string;
@@ -132,8 +146,8 @@ export interface CardLink {
 
 // Time Tracking
 export interface TimeEntry {
-  id: number;
-  card_id: number;
+  id: string;
+  card_id: string;
   user_name: string | null;
   description: string | null;
   start_time: string | null;
@@ -155,7 +169,7 @@ export const CreateBoardSchema = z.object({
 export const UpdateBoardSchema = CreateBoardSchema.partial();
 
 export const CreateColumnSchema = z.object({
-  board_id: z.number().int().positive(),
+  board_id: z.string().uuid(),
   name: z.string().min(1).max(255),
   position: z.number().int().min(0).default(0),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#64748b'),
@@ -164,8 +178,8 @@ export const CreateColumnSchema = z.object({
 export const UpdateColumnSchema = CreateColumnSchema.partial().omit({ board_id: true });
 
 export const CreateCardSchema = z.object({
-  board_id: z.number().int().positive(),
-  column_id: z.number().int().positive().optional(),
+  board_id: z.string().uuid(),
+  column_id: z.string().uuid().optional(),
   column_name: z.string().min(1).max(255).optional(),
   column_position: z.number().int().min(0).optional(),
   title: z.string().min(1).max(255),
@@ -179,7 +193,7 @@ export const CreateCardSchema = z.object({
 export const UpdateCardSchema = CreateCardSchema.partial().omit({ board_id: true });
 
 export const MoveCardSchema = z.object({
-  column_id: z.number().int().positive().optional(),
+  column_id: z.string().uuid().optional(),
   column_name: z.string().min(1).max(255).optional(),
   column_position: z.number().int().min(0).optional(),
   position: z.number().int().min(0),
@@ -191,21 +205,21 @@ export const CreateTagSchema = z.object({
 });
 
 export const CreateCommentSchema = z.object({
-  card_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
   content: z.string().min(1),
   author: z.string().max(255).optional(),
 });
 
 export const SearchCardsSchema = z.object({
   query: z.string().min(1),
-  board_id: z.number().int().positive().optional(),
+  board_id: z.string().uuid().optional(),
   priority: PrioritySchema.optional(),
   assigned_to: z.string().max(255).optional(),
 });
 
 // Custom Fields schemas
 export const CreateCustomFieldSchema = z.object({
-  board_id: z.number().int().positive(),
+  board_id: z.string().uuid(),
   name: z.string().min(1).max(255),
   field_type: CustomFieldTypeSchema,
   is_required: z.boolean().default(false),
@@ -217,14 +231,14 @@ export const CreateCustomFieldSchema = z.object({
 export const UpdateCustomFieldSchema = CreateCustomFieldSchema.partial().omit({ board_id: true });
 
 export const SetCustomFieldValueSchema = z.object({
-  card_id: z.number().int().positive(),
-  custom_field_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
+  custom_field_id: z.string().uuid(),
   value: z.string().optional(),
 });
 
 // Milestones schemas
 export const CreateMilestoneSchema = z.object({
-  board_id: z.number().int().positive(),
+  board_id: z.string().uuid(),
   name: z.string().min(1).max(255),
   description: z.string().optional(),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -235,20 +249,20 @@ export const CreateMilestoneSchema = z.object({
 export const UpdateMilestoneSchema = CreateMilestoneSchema.partial().omit({ board_id: true });
 
 export const CompleteMilestoneSchema = z.object({
-  milestone_id: z.number().int().positive(),
+  milestone_id: z.string().uuid(),
   is_completed: z.boolean(),
   completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export const AssignCardToMilestoneSchema = z.object({
-  card_id: z.number().int().positive(),
-  milestone_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
+  milestone_id: z.string().uuid(),
 });
 
 // Subtasks schemas
 export const CreateSubtaskSchema = z.object({
-  card_id: z.number().int().positive(),
-  parent_subtask_id: z.number().int().positive().optional(),
+  card_id: z.string().uuid(),
+  parent_subtask_id: z.string().uuid().optional(),
   title: z.string().min(1).max(255),
   description: z.string().optional(),
   position: z.number().int().min(0).default(0),
@@ -259,14 +273,14 @@ export const CreateSubtaskSchema = z.object({
 export const UpdateSubtaskSchema = CreateSubtaskSchema.partial().omit({ card_id: true });
 
 export const CompleteSubtaskSchema = z.object({
-  subtask_id: z.number().int().positive(),
+  subtask_id: z.string().uuid(),
   is_completed: z.boolean(),
 });
 
 // Card Links schemas
 export const CreateCardLinkSchema = z.object({
-  source_card_id: z.number().int().positive(),
-  target_card_id: z.number().int().positive(),
+  source_card_id: z.string().uuid(),
+  target_card_id: z.string().uuid(),
   link_type: CardLinkTypeSchema,
   description: z.string().optional(),
   created_by: z.string().max(255).optional(),
@@ -276,7 +290,7 @@ export const UpdateCardLinkSchema = CreateCardLinkSchema.partial().omit({ source
 
 // Time Tracking schemas
 export const CreateTimeEntrySchema = z.object({
-  card_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
   user_name: z.string().max(255).optional(),
   description: z.string().optional(),
   start_time: z.string().datetime().optional(),
@@ -289,18 +303,18 @@ export const CreateTimeEntrySchema = z.object({
 export const UpdateTimeEntrySchema = CreateTimeEntrySchema.partial().omit({ card_id: true });
 
 export const StartTimeTrackingSchema = z.object({
-  card_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
   user_name: z.string().max(255).optional(),
   description: z.string().optional(),
 });
 
 export const StopTimeTrackingSchema = z.object({
-  time_entry_id: z.number().int().positive(),
+  time_entry_id: z.string().uuid(),
   end_time: z.string().datetime().optional(),
 });
 
 export const UpdateCardTimeEstimateSchema = z.object({
-  card_id: z.number().int().positive(),
+  card_id: z.string().uuid(),
   estimated_hours: z.number().min(0).optional(),
 });
 
@@ -396,7 +410,7 @@ export interface KanbanStats {
   overdue_cards: number;
   recent_activity: Array<{
     type: 'card_created' | 'card_moved' | 'card_updated' | 'comment_added';
-    card_id: number;
+    card_id: string;
     card_title: string;
     timestamp: string;
     details?: string;
@@ -416,7 +430,7 @@ export class KanbanError extends Error {
 }
 
 export class NotFoundError extends KanbanError {
-  constructor(resource: string, id: number | string) {
+  constructor(resource: string, id: string) {
     super(`${resource} with id ${id} not found`, 'NOT_FOUND', 404);
   }
 }

@@ -1,17 +1,13 @@
 /**
- * Database Utilities - Universal database abstraction layer
+ * Database Utilities - PostgreSQL database abstraction layer
  */
 
 import { Kysely, sql } from 'kysely';
-import { SqliteDialect } from 'kysely';
 import { PostgresDialect } from 'kysely';
-import Database from 'better-sqlite3';
 import { Pool } from 'pg';
 
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgresql';
-  // SQLite config
-  filename?: string;
+  type: 'postgresql';
   // PostgreSQL config
   host?: string;
   port?: number;
@@ -35,9 +31,7 @@ export interface DatabaseHealthCheck {
 
 export function createDatabaseConfig(options: Partial<DatabaseConfig> = {}): DatabaseConfig {
   const defaults: DatabaseConfig = {
-    type: 'sqlite',
-    filename: './database.db',
-    // PostgreSQL defaults
+    type: 'postgresql',
     host: 'localhost',
     port: 5432,
     poolSize: 10,
@@ -51,30 +45,25 @@ export function createDatabaseConfig(options: Partial<DatabaseConfig> = {}): Dat
 }
 
 export function createKyselyInstance<T>(config: DatabaseConfig): Kysely<T> {
-  if (config.type === 'sqlite') {
-    const database = new Database(config.filename || './database.db');
-    return new Kysely<T>({
-      dialect: new SqliteDialect({ database })
-    });
-  } else if (config.type === 'postgresql') {
-    const pool = new Pool({
-      host: config.host,
-      port: config.port,
-      database: config.database,
-      user: config.user,
-      password: config.password,
-      max: config.poolSize || 10,
-      ssl: config.ssl ? { rejectUnauthorized: false } : false,
-      connectionTimeoutMillis: config.connectionTimeout || 30000,
-      idleTimeoutMillis: config.idleTimeout || 30000
-    });
-    
-    return new Kysely<T>({
-      dialect: new PostgresDialect({ pool })
-    });
-  } else {
-    throw new Error(`Unsupported database type: ${config.type}`);
+  if (config.type !== 'postgresql') {
+    throw new Error(`Only PostgreSQL is supported. Received: ${config.type}`);
   }
+  
+  const pool = new Pool({
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
+    max: config.poolSize || 10,
+    ssl: config.ssl ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: config.connectionTimeout || 30000,
+    idleTimeoutMillis: config.idleTimeout || 30000
+  });
+  
+  return new Kysely<T>({
+    dialect: new PostgresDialect({ pool })
+  });
 }
 
 export async function testDatabaseConnection<T>(db: Kysely<T>): Promise<DatabaseHealthCheck> {
@@ -204,7 +193,7 @@ export class DatabaseConnectionManager<T> {
   }
 
   // Helper method for dialect-specific SQL
-  getDialectType(): 'sqlite' | 'postgresql' {
+  getDialectType(): 'postgresql' {
     return this.config.type;
   }
 

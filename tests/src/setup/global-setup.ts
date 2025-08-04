@@ -29,20 +29,9 @@ export default async function globalSetup() {
 async function cleanupTestDatabases() {
   console.log('🧹 Cleaning up test databases...');
   
-  const testDbFiles = [
-    'gateway/memory-test.db',
-    'gateway/kanban-test.db',
-    'gateway/scraper-test.db',
-    'gateway/wiki-test.db',
-  ];
-
-  for (const dbFile of testDbFiles) {
-    try {
-      await fs.unlink(path.join('..', dbFile));
-    } catch (error) {
-      // File doesn't exist, ignore
-    }
-  }
+  // PostgreSQL databases are managed by the database server
+  // No local files to clean up
+  console.log('PostgreSQL databases will be cleaned by migrations service');
 }
 
 async function buildComponents() {
@@ -83,8 +72,7 @@ async function startServices() {
       ...process.env,
       NODE_ENV: 'test',
       PORT: '3001', // Use different port for testing
-      DATABASE_URL: 'sqlite:./memory-test.db',
-      KANBAN_DATABASE_URL: 'sqlite:./kanban-test.db',
+      DATABASE_URL: 'postgresql://postgres:password@localhost:5432/mcp_tools_test',
     },
     stdio: 'pipe'
   });

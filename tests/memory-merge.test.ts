@@ -14,18 +14,12 @@ describe('Memory Merging', () => {
   let memoryService: MemoryService;
   let database: MemoryDatabaseManager;
   let vectorEngine: VectorEngine;
-  const testDbPath = path.join(__dirname, 'test-memory-merge.db');
 
   beforeEach(async () => {
-    // Clean up any existing test database
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
-
     // Initialize test database and services
     database = new MemoryDatabaseManager({
-      type: 'sqlite',
-      filename: testDbPath
+      type: 'postgres',
+      connectionString: process.env.TEST_DATABASE_URL || 'postgresql://postgres:password@localhost:5432/mcp_tools_test'
     });
     
     await database.initialize();
@@ -43,9 +37,6 @@ describe('Memory Merging', () => {
 
   afterEach(async () => {
     await database.close();
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
-    }
   });
 
   describe('Merge Strategies', () => {

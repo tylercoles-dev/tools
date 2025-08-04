@@ -6,24 +6,17 @@
 import { MigrationProvider, Migration } from 'kysely';
 import { logger } from '../utils/logger.js';
 
-// Import all migration modules
-import { createInitialSchema } from '../migrations/001_initial_schema.js';
-import { addKanbanExtendedFeatures } from '../migrations/002_kanban_extended_features.js';
-import { addWikiFullTextSearch } from '../migrations/003_wiki_full_text_search.js';
-import { addMemoryGraphTables } from '../migrations/004_memory_graph_tables.js';
-import { addIndexesAndOptimizations } from '../migrations/005_indexes_and_optimizations.js';
-import { addAuditAndActivity } from '../migrations/006_audit_and_activity.js';
+// Import consolidated migration
+import { initialSchemaComplete } from '../migrations/001_initial_schema_complete.js';
 
 /**
  * Migration registry that maps migration names to their implementations
+ * 
+ * Note: Since this app hasn't been released yet, we've consolidated all 
+ * migrations into a single comprehensive schema migration for simplicity.
  */
 const MIGRATION_REGISTRY: Record<string, Migration> = {
-  '001_initial_schema': createInitialSchema,
-  '002_kanban_extended_features': addKanbanExtendedFeatures,
-  '003_wiki_full_text_search': addWikiFullTextSearch,
-  '004_memory_graph_tables': addMemoryGraphTables,
-  '005_indexes_and_optimizations': addIndexesAndOptimizations,
-  '006_audit_and_activity': addAuditAndActivity
+  '001_initial_schema_complete': initialSchemaComplete
 };
 
 /**
@@ -33,7 +26,7 @@ const MIGRATION_REGISTRY: Record<string, Migration> = {
  */
 export class CodeMigrationProvider implements MigrationProvider {
   async getMigrations(): Promise<Record<string, Migration>> {
-    logger.info(`Loading ${Object.keys(MIGRATION_REGISTRY).length} migrations from registry`);
+    logger.info(`Loading ${Object.keys(MIGRATION_REGISTRY).length} migration from registry`);
     
     // Validate all migrations have required methods
     for (const [name, migration] of Object.entries(MIGRATION_REGISTRY)) {
@@ -85,15 +78,13 @@ export function validateMigrationRegistry(): void {
     }
   }
   
-  // Check for sequential numbering
-  for (let i = 0; i < names.length; i++) {
-    const expectedNumber = String(i + 1).padStart(3, '0');
-    const actualNumber = names[i].substring(0, 3);
-    
-    if (actualNumber !== expectedNumber) {
-      throw new Error(`Migration numbering gap detected: expected ${expectedNumber}, found ${actualNumber}`);
+  // For single migration, just validate the naming
+  if (names.length === 1) {
+    const name = names[0];
+    if (!name.startsWith('001_')) {
+      throw new Error(`Single migration must start with 001_, found: ${name}`);
     }
   }
   
-  logger.info(`Migration registry validated: ${names.length} migrations in sequence`);
+  logger.info(`Migration registry validated: ${names.length} migration ready for execution`);
 }

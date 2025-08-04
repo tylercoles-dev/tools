@@ -2,6 +2,8 @@
 
 A comprehensive multi-server MCP (Model Context Protocol) ecosystem for advanced work management, documentation, and memory persistence capabilities.
 
+**Architecture**: Built on PostgreSQL with UUID primary keys for improved performance, distributed system compatibility, and enhanced security.
+
 ## Architecture
 
 This system consists of:
@@ -11,7 +13,7 @@ This system consists of:
 - **Web Client** (React/Next.js) - Frontend interface
 - **Background Workers** (TypeScript) - Embeddings processing, document conversion, and analysis
 - **Core Services** (TypeScript) - Shared types, services, and utilities
-- **Data Layer** - SQLite (development), PostgreSQL (production), NATS messaging
+- **Data Layer** - PostgreSQL (all environments), NATS messaging
 
 ## Project Structure
 
@@ -36,6 +38,7 @@ This system consists of:
 ### Prerequisites
 - Node.js 18.0.0+
 - npm 8.0.0+
+- PostgreSQL 12+ (with UUID support)
 - TypeScript (global): `npm install -g typescript`
 
 ### Installation
@@ -46,6 +49,10 @@ cd mcp_tools
 
 # Build core package first
 cd core && npm install && npm run build
+
+# Set up database with consolidated migration
+cd ../migrations && npm install && npm run build
+POSTGRES_PASSWORD=your_password node dist/migrate.js
 
 # Install and build other components
 cd ../gateway && npm install && npm run build

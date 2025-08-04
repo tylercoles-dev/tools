@@ -9,13 +9,12 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Configuration
+// Configuration (PostgreSQL only)
 const config = {
   port: parseInt(process.env.PORT || '8196'),
   host: process.env.HOST || 'localhost',
   database: {
-    type: (process.env.DB_TYPE as 'sqlite' | 'postgres' | 'mysql') || 'sqlite',
-    filename: process.env.DB_FILE || path.join(__dirname, '../wiki.db'),
+    type: 'postgres' as const,
     connectionString: process.env.DATABASE_URL,
     host: process.env.DB_HOST,
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : undefined,

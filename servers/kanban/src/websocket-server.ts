@@ -9,7 +9,8 @@ import { EventEmitter } from 'events';
 
 export interface WebSocketMessage {
   type: 'board_updated' | 'card_moved' | 'card_created' | 'card_updated' | 'card_deleted' | 
-        'column_created' | 'column_updated' | 'column_deleted' | 'comment_added' | 'tag_added';
+        'column_created' | 'column_updated' | 'column_deleted' | 'comment_added' | 'tag_added' |
+        'time_entry_created' | 'time_entry_updated' | 'time_entry_deleted';
   boardId: number;
   data: any;
   timestamp: string;
@@ -176,6 +177,31 @@ export class KanbanWebSocketServer extends EventEmitter {
       type: 'comment_added',
       boardId,
       data: commentData,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  /**
+   * Generic method to broadcast to board clients (used by time tracking tools)
+   */
+  broadcastToBoardClients(boardId: number, eventType: string, data: any): void {
+    // Map eventType to proper WebSocket message type
+    let messageType: WebSocketMessage['type'];
+    
+    switch (eventType) {
+      case 'time_entry_created':
+      case 'time_entry_updated':
+      case 'time_entry_deleted':
+        messageType = eventType as WebSocketMessage['type'];
+        break;
+      default:
+        messageType = 'board_updated'; // fallback
+    }
+
+    this.broadcast({
+      type: messageType,
+      boardId,
+      data,
       timestamp: new Date().toISOString()
     });
   }

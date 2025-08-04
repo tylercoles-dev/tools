@@ -59,18 +59,6 @@ const config = {
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
   database: {
-    kanban: {
-      type: 'sqlite' as const,
-      filename: process.env.KANBAN_DB_FILE || path.join(process.cwd(), 'kanban-test.db')
-    },
-    memory: {
-      type: 'sqlite' as const,
-      filename: process.env.MEMORY_DB_FILE || path.join(process.cwd(), 'memory-test.db')
-    },
-    scraper: {
-      type: 'sqlite' as const,
-      filename: process.env.SCRAPER_DB_FILE || path.join(process.cwd(), 'scraper-test.db')
-    },
     postgres: process.env.DATABASE_URL || 'postgresql://mcp_user:mcp_password@localhost:5432/mcp_tools',
     redis: process.env.REDIS_URL || 'redis://localhost:6379'
   },
@@ -138,9 +126,7 @@ async function createApp() {
   
   // Initialize core services
   console.log('🔧 Initializing services...');
-  console.log('Kanban DB path:', config.database.kanban.filename);
-  console.log('Memory DB path:', config.database.memory.filename);
-  console.log('Scraper DB path:', config.database.scraper.filename);
+  console.log('PostgreSQL URL:', config.database.postgres);
   
   // Initialize PostgreSQL and Redis for analytics
   console.log('🔄 Connecting to PostgreSQL...');
@@ -158,14 +144,23 @@ async function createApp() {
     maxRetriesPerRequest: null,
   });
   
-  // Initialize databases
-  const kanbanDatabase = new KanbanDatabase(config.database.kanban);
+  // Initialize databases with PostgreSQL configurations
+  const kanbanDatabase = new KanbanDatabase({
+    type: 'postgres',
+    connectionString: config.database.postgres
+  });
   console.log('✅ KanbanDatabase created');
   
-  const memoryDatabase = new MemoryDatabaseManager(config.database.memory);
+  const memoryDatabase = new MemoryDatabaseManager({
+    type: 'postgres',
+    connectionString: config.database.postgres
+  });
   console.log('✅ MemoryDatabase created');
   
-  const scraperDatabase = new ScraperDatabaseManager(config.database.scraper);
+  const scraperDatabase = new ScraperDatabaseManager({
+    type: 'postgres',
+    connectionString: config.database.postgres
+  });
   console.log('✅ ScraperDatabase created');
   
   console.log('🔄 Initializing kanban database...');

@@ -57,21 +57,21 @@ export const registerGetBoardTool = (db: KanbanDatabase): ToolModule => ({
 
       const columns = await db.getColumnsByBoard(board_id);
       const boardData: KanbanBoardData = {
-        board: board as Board & { id: number },
+        board: board as Board & { id: string },
         columns: await Promise.all(
           columns.map(async (column) => {
-            const cards = await db.getCardsByColumn(column.id!);
+            const cards = await db.getCardsByColumn(column.id);
             const cardsWithTags = await Promise.all(
               cards.map(async (card) => {
-                const tags = await db.getCardTags(card.id!);
+                const tags = await db.getCardTags(card.id);
                 return {
                   ...card,
-                  id: card.id!,
-                  tags: tags.map(tag => ({ ...tag, id: tag.id! }))
+                  id: card.id,
+                  tags: tags.map(tag => ({ ...tag, id: tag.id }))
                 };
               })
             );
-            return { ...column, id: column.id!, cards: cardsWithTags };
+            return { ...column, id: column.id, cards: cardsWithTags };
           })
         ),
       };

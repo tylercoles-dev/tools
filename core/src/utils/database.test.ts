@@ -22,12 +22,11 @@ interface TestDatabase {
 
 describe('Database Abstraction Layer', () => {
   describe('Configuration', () => {
-    it('should create default SQLite configuration', () => {
+    it('should create default PostgreSQL configuration', () => {
       const config = createDatabaseConfig();
       
       expect(config).toMatchObject({
-        type: 'sqlite',
-        filename: './database.db',
+        type: 'postgresql',
         host: 'localhost',
         port: 5432,
         poolSize: 10,
@@ -38,9 +37,8 @@ describe('Database Abstraction Layer', () => {
       });
     });
 
-    it('should create PostgreSQL configuration', () => {
+    it('should create custom PostgreSQL configuration', () => {
       const config = createDatabaseConfig({
-        type: 'postgresql',
         host: 'db.example.com',
         port: 5433,
         database: 'myapp',
@@ -64,7 +62,6 @@ describe('Database Abstraction Layer', () => {
 
     it('should merge custom options with defaults', () => {
       const config = createDatabaseConfig({
-        type: 'postgresql',
         database: 'testdb',
         poolSize: 15
       });
@@ -80,13 +77,120 @@ describe('Database Abstraction Layer', () => {
     });
   });
 
-  describe('SQLite Operations', () => {
+  describe('Kysely Instance Creation', () => {
+    it('should create PostgreSQL instance', () => {
+      const config = createDatabaseConfig({
+        database: 'test_db'
+      });
+      
+      const db = createKyselyInstance<TestDatabase>(config);
+      expect(db).toBeDefined();
+    });
+
+    it('should throw error for unsupported database type', () => {
+      const config = createDatabaseConfig();
+      // Force an invalid type
+      (config as any).type = 'unsupported';
+      
+      expect(() => createKyselyInstance<TestDatabase>(config))
+        .toThrow('Only PostgreSQL is supported. Received: unsupported');
+    });
+  });
+
+  describe('PostgreSQL Configuration Tests', () => {
+    it('should create PostgreSQL configuration without connecting', () => {
+      const config = createDatabaseConfig({
+        host: 'localhost',
+        port: 5432,
+        database: 'test_db',
+        user: 'test_user',
+        password: 'test_pass',
+        poolSize: 5,
+        ssl: true
+      });
+
+      expect(config.type).toBe('postgresql');
+      expect(config.poolSize).toBe(5);
+      expect(config.ssl).toBe(true);
+      
+      // Should not throw when creating instance (though connection would fail without actual DB)
+      expect(() => {
+        const db = createKyselyInstance<TestDatabase>(config);
+        // Don't attempt to connect, just test instance creation
+        expect(db).toBeDefined();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Database Utility Methods', () => {
+    it('should handle timestamp generation consistently', () => {
+      const manager = new DatabaseConnectionManager<TestDatabase>(
+        createDatabaseConfig({ 
+          database: 'test' // Won't connect, just testing method
+        })
+      );
+      
+      const timestamp = manager.getCurrentTimestamp();
+      
+      // Should return ISO string
+      expect(typeof timestamp).toBe('string');
+      expect(new Date(timestamp).getTime()).toBeGreaterThan(0);
+    });
+
+    it('should handle JSON operations consistently', () => {
+      const manager = new DatabaseConnectionManager<TestDatabase>(
+        createDatabaseConfig({ 
+          database: 'test'
+        })
+      );
+      
+      const testData = { key: 'value', number: 42, array: [1, 2, 3] };
+      
+      const json = manager.createJsonColumn(testData);
+      expect(json).toBe('{"key":"value","number":42,"array":[1,2,3]}');
+      
+      const parsed = manager.parseJsonColumn(json);
+      expect(parsed).toEqual(testData);
+    });
+
+    it('should handle JSON parsing errors gracefully', () => {
+      const manager = new DatabaseConnectionManager<TestDatabase>(
+        createDatabaseConfig({ database: 'test' })
+      );
+      
+      const invalidJson = 'invalid-json';
+      const result = manager.parseJsonColumn(invalidJson);
+      expect(result).toBe(invalidJson);
+    });
+
+    it('should return correct dialect type', () => {
+      const manager = new DatabaseConnectionManager<TestDatabase>(
+        createDatabaseConfig({ database: 'test' })
+      );
+      
+      expect(manager.getDialectType()).toBe('postgresql');
+    });
+  });
+
+  // Note: These tests require a running PostgreSQL instance
+  // Use environment variable TEST_DATABASE_URL to enable integration tests
+  describe('PostgreSQL Integration Tests', () => {
+    const shouldRunIntegrationTests = process.env.TEST_DATABASE_URL && process.env.NODE_ENV === 'test';
+    
+    if (!shouldRunIntegrationTests) {
+      it.skip('Integration tests skipped - set TEST_DATABASE_URL to enable', () => {});
+      return;
+    }
+
     let manager: DatabaseConnectionManager<TestDatabase>;
 
     beforeEach(async () => {
       const config = createDatabaseConfig({
-        type: 'sqlite',
-        filename: ':memory:'
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME || 'test',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres'
       });
       
       manager = new DatabaseConnectionManager<TestDatabase>(config);
@@ -95,18 +199,25 @@ describe('Database Abstraction Layer', () => {
       // Create test table
       await manager.kysely.schema
         .createTable('test_table')
+        .ifNotExists()
         .addColumn('id', 'text', col => col.primaryKey())
         .addColumn('name', 'text', col => col.notNull())
         .addColumn('value', 'integer', col => col.notNull())
-        .addColumn('created_at', 'text', col => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
+        .addColumn('created_at', 'timestamp', col => col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`))
         .execute();
     });
 
     afterEach(async () => {
+      try {
+        // Clean up test table
+        await manager.kysely.schema.dropTable('test_table').ifExists().execute();
+      } catch (error) {
+        console.warn('Failed to clean up test table:', error);
+      }
       await manager.close();
     });
 
-    it('should establish SQLite connection', async () => {
+    it('should establish PostgreSQL connection', async () => {
       const healthCheck = await manager.healthCheck();
       
       expect(healthCheck.isHealthy).toBe(true);
@@ -183,244 +294,6 @@ describe('Database Abstraction Layer', () => {
       
       const items = await db.selectFrom('test_table').selectAll().execute();
       expect(items).toHaveLength(2);
-    });
-
-    it('should provide utility methods', () => {
-      expect(manager.getDialectType()).toBe('sqlite');
-      
-      const timestamp = manager.getCurrentTimestamp();
-      expect(typeof timestamp).toBe('string');
-      expect(new Date(timestamp).getTime()).toBeGreaterThan(0);
-      
-      const jsonString = manager.createJsonColumn({ test: 'value' });
-      expect(jsonString).toBe('{"test":"value"}');
-      
-      const parsedValue = manager.parseJsonColumn(jsonString);
-      expect(parsedValue).toEqual({ test: 'value' });
-    });
-
-    it('should handle JSON parsing errors gracefully', () => {
-      const invalidJson = 'invalid-json';
-      const result = manager.parseJsonColumn(invalidJson);
-      expect(result).toBe(invalidJson);
-    });
-  });
-
-  describe('Kysely Instance Creation', () => {
-    it('should create SQLite instance', () => {
-      const config = createDatabaseConfig({
-        type: 'sqlite',
-        filename: ':memory:'
-      });
-      
-      const db = createKyselyInstance<TestDatabase>(config);
-      expect(db).toBeDefined();
-    });
-
-    it('should throw error for unsupported database type', () => {
-      const config = createDatabaseConfig({
-        type: 'mysql' as any
-      });
-      
-      expect(() => createKyselyInstance<TestDatabase>(config))
-        .toThrow('Unsupported database type: mysql');
-    });
-  });
-
-  describe('Connection Testing', () => {
-    it('should test SQLite connection successfully', async () => {
-      const config = createDatabaseConfig({
-        type: 'sqlite',
-        filename: ':memory:'
-      });
-      
-      const db = createKyselyInstance<TestDatabase>(config);
-      const healthCheck = await testDatabaseConnection(db);
-      
-      expect(healthCheck.isHealthy).toBe(true);
-      expect(healthCheck.latency).toBeGreaterThanOrEqual(0);
-      expect(healthCheck.timestamp).toBeDefined();
-      
-      await db.destroy();
-    });
-
-    it('should handle connection failures', async () => {
-      // Create an invalid database connection by using a bad filename that will cause issues
-      const config = createDatabaseConfig({
-        type: 'sqlite',
-        filename: ':memory:' // Use valid path but simulate failure with invalid query
-      });
-      
-      const db = createKyselyInstance<TestDatabase>(config);
-      
-      // Test with an invalid SQL query to simulate failure
-      const start = Date.now();
-      const timestamp = new Date().toISOString();
-      
-      try {
-        // This will fail because the table doesn't exist
-        await sql`SELECT * FROM non_existent_table`.execute(db);
-        // If it doesn't fail, force a failure
-        expect(true).toBe(false);
-      } catch (error) {
-        const healthCheck = {
-          isHealthy: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp
-        };
-        
-        expect(healthCheck.isHealthy).toBe(false);
-        expect(healthCheck.error).toBeDefined();
-        expect(healthCheck.timestamp).toBeDefined();
-      }
-      
-      await db.destroy();
-    });
-  });
-
-  describe('Connection Manager Features', () => {
-    let manager: DatabaseConnectionManager<TestDatabase>;
-
-    beforeEach(async () => {
-      const config = createDatabaseConfig({
-        type: 'sqlite',
-        filename: ':memory:'
-      });
-      
-      manager = new DatabaseConnectionManager<TestDatabase>(config);
-    });
-
-    afterEach(async () => {
-      await manager.close();
-    });
-
-    it('should initialize and track health check', async () => {
-      await manager.initialize();
-      
-      const lastHealthCheck = manager.getLastHealthCheck();
-      expect(lastHealthCheck).toBeDefined();
-      expect(lastHealthCheck?.isHealthy).toBe(true);
-    });
-
-    it('should perform periodic health checks', async () => {
-      await manager.initialize();
-      
-      const initialHealthCheck = manager.getLastHealthCheck();
-      
-      // Wait a bit and perform another health check
-      await new Promise(resolve => setTimeout(resolve, 10));
-      const newHealthCheck = await manager.healthCheck();
-      
-      // Check that a new health check was performed (timestamps should be different)
-      expect(newHealthCheck.timestamp).toBeDefined();
-      expect(newHealthCheck.isHealthy).toBe(true);
-      
-      // The timestamps might be the same due to precision, but the health check should still work
-      expect(typeof newHealthCheck.timestamp).toBe('string');
-    });
-
-    it('should handle close gracefully', async () => {
-      await manager.initialize();
-      
-      // This should not throw an error
-      await expect(manager.close()).resolves.not.toThrow();
-    });
-  });
-
-  // Note: PostgreSQL tests would require a running PostgreSQL instance
-  // In a real testing environment, you would either:
-  // 1. Use a test PostgreSQL container (Docker)
-  // 2. Mock the PostgreSQL client
-  // 3. Use a test database service
-  
-  describe('PostgreSQL Configuration (Integration)', () => {
-    it('should create PostgreSQL configuration without connecting', () => {
-      const config = createDatabaseConfig({
-        type: 'postgresql',
-        host: 'localhost',
-        port: 5432,
-        database: 'test_db',
-        user: 'test_user',
-        password: 'test_pass',
-        poolSize: 5,
-        ssl: true
-      });
-
-      expect(config.type).toBe('postgresql');
-      expect(config.poolSize).toBe(5);
-      expect(config.ssl).toBe(true);
-      
-      // Should not throw when creating instance (though connection would fail without actual DB)
-      expect(() => {
-        const db = createKyselyInstance<TestDatabase>(config);
-        // Don't attempt to connect, just test instance creation
-        expect(db).toBeDefined();
-      }).not.toThrow();
-    });
-  });
-
-  describe('Cross-Database Compatibility', () => {
-    it('should handle timestamp generation consistently', () => {
-      const sqliteManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ type: 'sqlite', filename: ':memory:' })
-      );
-      
-      const postgresManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ 
-          type: 'postgresql',
-          database: 'test' // Won't connect, just testing method
-        })
-      );
-      
-      const sqliteTimestamp = sqliteManager.getCurrentTimestamp();
-      const postgresTimestamp = postgresManager.getCurrentTimestamp();
-      
-      // Both should return ISO strings
-      expect(typeof sqliteTimestamp).toBe('string');
-      expect(typeof postgresTimestamp).toBe('string');
-      expect(new Date(sqliteTimestamp).getTime()).toBeGreaterThan(0);
-      expect(new Date(postgresTimestamp).getTime()).toBeGreaterThan(0);
-    });
-
-    it('should handle JSON operations consistently', () => {
-      const sqliteManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ type: 'sqlite', filename: ':memory:' })
-      );
-      
-      const postgresManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ 
-          type: 'postgresql',
-          database: 'test'
-        })
-      );
-      
-      const testData = { key: 'value', number: 42, array: [1, 2, 3] };
-      
-      const sqliteJson = sqliteManager.createJsonColumn(testData);
-      const postgresJson = postgresManager.createJsonColumn(testData);
-      
-      // Both should create identical JSON strings
-      expect(sqliteJson).toBe(postgresJson);
-      
-      const sqliteParsed = sqliteManager.parseJsonColumn(sqliteJson);
-      const postgresParsed = postgresManager.parseJsonColumn(postgresJson);
-      
-      // Both should parse to the same object
-      expect(sqliteParsed).toEqual(testData);
-      expect(postgresParsed).toEqual(testData);
-    });
-
-    it('should return correct dialect types', () => {
-      const sqliteManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ type: 'sqlite', filename: ':memory:' })
-      );
-      
-      const postgresManager = new DatabaseConnectionManager<TestDatabase>(
-        createDatabaseConfig({ type: 'postgresql', database: 'test' })
-      );
-      
-      expect(sqliteManager.getDialectType()).toBe('sqlite');
-      expect(postgresManager.getDialectType()).toBe('postgresql');
     });
   });
 });

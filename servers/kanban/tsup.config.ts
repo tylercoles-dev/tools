@@ -14,16 +14,21 @@ export default defineConfig({
   bundle: true,
   external: [
     // Keep external dependencies as external
-    'better-sqlite3',
-    'mysql2', 
     'pg',
-    'marked',
+    'marked',  
     'zod',
     'express',
     'ws',
     '@tylercoles/mcp-server',
-    '@tylercoles/mcp-transport-http'
+    '@tylercoles/mcp-transport-http',
+    'kysely',
+    '@mcp-tools/core'
   ],
+  esbuildOptions: (options) => {
+    // Ensure @mcp-tools/core is resolved from TypeScript paths
+    options.bundle = true;
+    options.platform = 'node';
+  },
   env: {
     NODE_ENV: 'production'
   },

@@ -4,22 +4,22 @@
     "composite": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noImplicitAny": false,
     "noEmit": false,
     "emitDeclarationOnly": false,
     "paths": {
       "@/*": ["./src/*"],
       "@kanban/*": ["./src/*"],
-      "@mcp-tools/core": ["./core/src/index.ts"],
-      "@mcp-tools/core/*": ["./core/src/*"],
-      "@shared/*": ["./core/src/shared/*"],
-      "@types/*": ["./core/src/shared/types/*"]
+      "@mcp-tools/core": ["../../core/src/index.ts"],
+      "@mcp-tools/core/*": ["../../core/src/*"],
+      "@shared/*": ["../../core/src/shared/*"],
+      "@types/*": ["../../core/src/shared/types/*"]
     }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "frontend"],
   "references": [
-    { "path": "./core" }
+    { "path": "../../core" }
   ]
 }

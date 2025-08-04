@@ -18,6 +18,9 @@ Shared types follow semantic versioning to ensure backwards compatibility.
 ### 4. **Documentation First**
 All types include comprehensive JSDoc descriptions for API documentation generation.
 
+### 5. **UUID Primary Keys**
+All entity identifiers use UUID strings for improved performance, distributed system compatibility, and security. UUIDs are generated using PostgreSQL's `gen_random_uuid()` function or Node.js `crypto.randomUUID()`.
+
 ## Type Categories
 
 ### 1. Embedding Types (`embedding.ts`)
@@ -27,16 +30,16 @@ Core types for vector embedding operations across the system.
 #### **EmbeddingRequest/Response**
 ```typescript
 interface EmbeddingRequest {
-  id: string;                    // Unique request identifier  
+  id: string;                    // UUID request identifier  
   text: string;                  // Text content to embed
-  user_id?: string;              // Optional user tracking
-  request_id: string;            // Correlation ID
+  user_id?: string;              // UUID user tracking
+  request_id: string;            // UUID correlation ID
   model?: string;                // Optional model override
   dimensions?: number;           // Optional dimension override
 }
 
 interface EmbeddingResponse {
-  request_id: string;            // Matching correlation ID
+  request_id: string;            // Matching UUID correlation ID
   embedding: number[];           // Generated vector
   dimension: number;             // Vector dimensions
   processing_time_ms: number;    // Processing duration
@@ -62,14 +65,14 @@ interface EmbeddingProviderConfig {
 #### **Batch Processing**
 ```typescript
 interface EmbeddingBatchRequest {
-  batch_id: string;              // Batch identifier
+  batch_id: string;              // UUID batch identifier
   requests: EmbeddingRequest[];  // Individual requests
   priority: 'low' | 'normal' | 'high';  // Processing priority
   callback_subject?: string;     // NATS callback subject
 }
 
 interface EmbeddingBatchResponse {
-  batch_id: string;              // Matching batch ID
+  batch_id: string;              // Matching UUID batch ID
   responses: EmbeddingResponse[]; // Individual responses
   errors: EmbeddingError[];      // Any errors encountered
   total_processing_time_ms: number;
@@ -104,7 +107,7 @@ interface BaseWorkerConfig {
   shutdownTimeout: number;       // Graceful shutdown timeout (default: 30s)
   
   // Worker Identification
-  workerId?: string;             // Unique instance ID
+  workerId?: string;             // UUID instance ID
   workerName: string;            // Human-readable name
   version?: string;              // Worker version
 }
@@ -113,7 +116,7 @@ interface BaseWorkerConfig {
 #### **Worker Status & Health**
 ```typescript
 interface WorkerStatus {
-  workerId: string;
+  workerId: string;              // UUID worker identifier
   workerName: string;
   status: 'starting' | 'healthy' | 'degraded' | 'unhealthy' | 'stopping';
   uptime: number;                // Milliseconds
@@ -123,7 +126,7 @@ interface WorkerStatus {
 }
 
 interface WorkerMetrics {
-  workerId: string;
+  workerId: string;              // UUID worker identifier
   timestamp: number;
   
   // Performance Metrics
@@ -144,7 +147,7 @@ interface WorkerMetrics {
 #### **Worker Lifecycle Events**
 ```typescript
 interface WorkerEvent {
-  workerId: string;
+  workerId: string;              // UUID worker identifier
   eventType: 'started' | 'stopped' | 'error' | 'health_check' | 'metrics';
   timestamp: number;
   data?: any;                    // Event-specific data
@@ -174,10 +177,10 @@ Standardized message schemas for inter-service communication.
 #### **Base Message Pattern**
 ```typescript
 interface BaseMessage {
-  messageId: string;             // Unique message ID
+  messageId: string;             // UUID message ID
   timestamp: number;             // Message timestamp  
   source: string;                // Originating service
-  correlationId?: string;        // Request correlation
+  correlationId?: string;        // UUID request correlation
   version: string;               // Schema version (default: "1.0")
 }
 ```
@@ -186,8 +189,8 @@ interface BaseMessage {
 ```typescript
 interface MemoryEvent extends BaseMessage {
   eventType: 'created' | 'updated' | 'deleted' | 'analyzed';
-  memoryId: string;
-  userId: string;
+  memoryId: string;              // UUID memory identifier
+  userId: string;                // UUID user identifier
   projectName?: string;
   content?: string;              // For create/update events
   metadata?: Record<string, any>;
@@ -198,9 +201,9 @@ interface MemoryEvent extends BaseMessage {
 ```typescript
 interface AnalysisEvent extends BaseMessage {
   analysisType: 'content' | 'relationship' | 'sentiment' | 'topic';
-  targetId: string;
+  targetId: string;              // UUID target identifier
   targetType: 'memory' | 'document' | 'conversation';
-  userId: string;
+  userId: string;                // UUID user identifier
   results: Record<string, any>;
   confidence?: number;           // 0-1 confidence score
 }
@@ -210,8 +213,8 @@ interface AnalysisEvent extends BaseMessage {
 ```typescript
 interface RelationshipEvent extends BaseMessage {
   eventType: 'detected' | 'confirmed' | 'rejected' | 'updated';
-  sourceId: string;
-  targetId: string;
+  sourceId: string;              // UUID source identifier
+  targetId: string;              // UUID target identifier
   relationshipType: string;
   strength: number;              // 0-1 relationship strength
   metadata?: Record<string, any>;
@@ -313,9 +316,9 @@ interface ApiValidationError {
 #### **Batch Operations**
 ```typescript
 interface BatchRequest {
-  batchId?: string;              // Optional batch identifier
+  batchId?: string;              // Optional UUID batch identifier
   operations: Array<{
-    id: string;                  // Operation identifier
+    id: string;                  // UUID operation identifier
     operation: string;           // Operation type
     data: any;                   // Operation data
   }>;
@@ -323,12 +326,12 @@ interface BatchRequest {
 }
 
 interface BatchResponse {
-  batchId: string;
+  batchId: string;               // UUID batch identifier
   totalOperations: number;
   successfulOperations: number;
   failedOperations: number;
   results: Array<{
-    id: string;
+    id: string;                  // UUID operation identifier
     success: boolean;
     data?: any;
     error?: string;
@@ -499,5 +502,23 @@ async function publishMemoryCreated(memory: Memory) {
 3. **Runtime Type Guards**: Enhanced runtime type checking utilities
 4. **Type Migrations**: Automated migration tools for breaking changes
 5. **Performance Monitoring**: Built-in performance tracking for shared types
+
+## UUID Quick Reference
+
+| Context | Format | Example | Usage |
+|---------|--------|---------|-------|
+| Database | `UUID` | `gen_random_uuid()` | Primary key generation |
+| TypeScript | `string` | `crypto.randomUUID()` | Client-side ID creation |
+| API | `string` | `"123e4567-e89b-012d-3456-426614174000"` | HTTP requests/responses |
+| Validation | `z.string().uuid()` | Zod schema validation | Runtime type checking |
+| Testing | `string` | `"550e8400-e29b-41d4-a716-446655440000"` | Consistent test fixtures |
+
+### UUID Performance Notes
+
+- **Storage**: 16 bytes in database, 36 characters as string
+- **Generation**: ~2-3μs per UUID (extremely fast)
+- **Indexing**: B-tree indexes work efficiently with UUIDs
+- **Uniqueness**: Practically guaranteed globally unique
+- **Security**: Non-sequential, harder to guess than incremental IDs
 
 The shared types architecture provides a solid foundation for the MCP Tools ecosystem, ensuring type safety, consistency, and maintainability across all services and workers.

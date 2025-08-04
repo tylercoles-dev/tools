@@ -4,6 +4,7 @@
  * Core business logic for Kanban operations
  */
 
+import { randomUUID } from 'crypto';
 import { sql } from 'kysely';
 import type { KanbanDatabase } from './database.js';
 import type {
@@ -11,6 +12,7 @@ import type {
   Column,
   Tag,
   Comment,
+  TimeEntry,
   CreateBoardInput,
   UpdateBoardInput,
   CreateColumnInput,
@@ -43,7 +45,7 @@ export class KanbanService {
       .execute();
   }
 
-  async getBoardById(id: number): Promise<BoardWithColumns | null> {
+  async getBoardById(id: string): Promise<BoardWithColumns | null> {
     const board = await this.database.kysely
       .selectFrom('boards')
       .selectAll()
@@ -68,6 +70,7 @@ export class KanbanService {
     const result = await this.database.kysely
       .insertInto('boards')
       .values({
+        id: randomUUID(),
         name: input.name,
         description: input.description || null,
         color: input.color || '#6366f1',
@@ -83,7 +86,7 @@ export class KanbanService {
     return result;
   }
 
-  async updateBoard(id: number, input: UpdateBoardInput): Promise<Board> {
+  async updateBoard(id: string, input: UpdateBoardInput): Promise<Board> {
     const board = await this.database.kysely
       .selectFrom('boards')
       .selectAll()
@@ -107,7 +110,7 @@ export class KanbanService {
       .executeTakeFirstOrThrow();
   }
 
-  async deleteBoard(id: number): Promise<void> {
+  async deleteBoard(id: string): Promise<void> {
     const result = await this.database.kysely
       .deleteFrom('boards')
       .where('id', '=', id)
@@ -119,7 +122,7 @@ export class KanbanService {
   }
 
   // Column operations
-  async getColumnsByBoardId(boardId: number): Promise<ColumnWithCards[]> {
+  async getColumnsByBoardId(boardId: string): Promise<ColumnWithCards[]> {
     const columns = await this.database.kysely
       .selectFrom('columns')
       .selectAll()
@@ -146,6 +149,7 @@ export class KanbanService {
     return await this.database.kysely
       .insertInto('columns')
       .values({
+        id: randomUUID(),
         board_id: input.board_id,
         name: input.name,
         position: input.position || 0,
@@ -157,7 +161,7 @@ export class KanbanService {
       .executeTakeFirstOrThrow();
   }
 
-  async updateColumn(id: number, input: UpdateColumnInput): Promise<Column> {
+  async updateColumn(id: string, input: UpdateColumnInput): Promise<Column> {
     const column = await this.database.kysely
       .selectFrom('columns')
       .selectAll()
@@ -181,7 +185,7 @@ export class KanbanService {
       .executeTakeFirstOrThrow();
   }
 
-  async deleteColumn(id: number): Promise<void> {
+  async deleteColumn(id: string): Promise<void> {
     const result = await this.database.kysely
       .deleteFrom('columns')
       .where('id', '=', id)
@@ -193,7 +197,7 @@ export class KanbanService {
   }
 
   // Card operations
-  async getCardsByColumnId(columnId: number): Promise<CardWithTags[]> {
+  async getCardsByColumnId(columnId: string): Promise<CardWithTags[]> {
     const cards = await this.database.kysely
       .selectFrom('cards')
       .selectAll()
@@ -214,7 +218,7 @@ export class KanbanService {
     return cardsWithTags;
   }
 
-  async getCardById(id: number): Promise<CardWithTags | null> {
+  async getCardById(id: string): Promise<CardWithTags | null> {
     const card = await this.database.kysely
       .selectFrom('cards')
       .selectAll()
@@ -273,6 +277,7 @@ export class KanbanService {
     const card = await this.database.kysely
       .insertInto('cards')
       .values({
+        id: randomUUID(),
         board_id: input.board_id,
         column_id: columnId,
         title: input.title,
@@ -306,7 +311,7 @@ export class KanbanService {
     };
   }
 
-  async updateCard(id: number, input: UpdateCardInput): Promise<CardWithTags> {
+  async updateCard(id: string, input: UpdateCardInput): Promise<CardWithTags> {
     const card = await this.database.kysely
       .selectFrom('cards')
       .selectAll()
@@ -363,7 +368,7 @@ export class KanbanService {
     };
   }
 
-  async moveCard(id: number, input: MoveCardInput): Promise<CardWithTags> {
+  async moveCard(id: string, input: MoveCardInput): Promise<CardWithTags> {
     const card = await this.database.kysely
       .selectFrom('cards')
       .selectAll()
@@ -447,7 +452,7 @@ export class KanbanService {
     };
   }
 
-  async deleteCard(id: number): Promise<void> {
+  async deleteCard(id: string): Promise<void> {
     const result = await this.database.kysely
       .deleteFrom('cards')
       .where('id', '=', id)
@@ -508,6 +513,7 @@ export class KanbanService {
     return await this.database.kysely
       .insertInto('tags')
       .values({
+        id: randomUUID(),
         name: input.name,
         color: input.color || '#64748b',
         created_at: now,
@@ -517,12 +523,13 @@ export class KanbanService {
       .executeTakeFirstOrThrow();
   }
 
-  async addCardTag(cardId: number, tagId: number): Promise<void> {
+  async addCardTag(cardId: string, tagId: string): Promise<void> {
     const now = new Date().toISOString();
 
     await this.database.kysely
       .insertInto('card_tags')
       .values({
+        id: randomUUID(),
         card_id: cardId,
         tag_id: tagId,
         created_at: now
@@ -530,7 +537,7 @@ export class KanbanService {
       .execute();
   }
 
-  async removeCardTag(cardId: number, tagId: number): Promise<void> {
+  async removeCardTag(cardId: string, tagId: string): Promise<void> {
     await this.database.kysely
       .deleteFrom('card_tags')
       .where('card_id', '=', cardId)
@@ -538,7 +545,7 @@ export class KanbanService {
       .execute();
   }
 
-  async getCardTags(cardId: number): Promise<Tag[]> {
+  async getCardTags(cardId: string): Promise<Tag[]> {
     return await this.database.kysely
       .selectFrom('card_tags')
       .innerJoin('tags', 'tags.id', 'card_tags.tag_id')
@@ -548,7 +555,7 @@ export class KanbanService {
   }
 
   // Comment operations
-  async getCardComments(cardId: number): Promise<Comment[]> {
+  async getCardComments(cardId: string): Promise<Comment[]> {
     return await this.database.kysely
       .selectFrom('comments')
       .selectAll()
@@ -563,6 +570,7 @@ export class KanbanService {
     return await this.database.kysely
       .insertInto('comments')
       .values({
+        id: randomUUID(),
         card_id: input.card_id,
         content: input.content,
         author: input.author || null,
@@ -573,7 +581,7 @@ export class KanbanService {
       .executeTakeFirstOrThrow();
   }
 
-  async deleteComment(id: number): Promise<void> {
+  async deleteComment(id: string): Promise<void> {
     const result = await this.database.kysely
       .deleteFrom('comments')
       .where('id', '=', id)
@@ -674,8 +682,8 @@ export class KanbanService {
 
   // Activity tracking methods
   async logActivity(data: {
-    card_id: number;
-    board_id: number;
+    card_id: string;
+    board_id: string;
     action_type: 'created' | 'updated' | 'moved' | 'assigned' | 'commented' | 'tagged' | 'archived' | 'restored' | 'linked' | 'time_logged';
     user_id?: string;
     user_name?: string;
@@ -687,6 +695,7 @@ export class KanbanService {
     await this.database.kysely
       .insertInto('card_activities')
       .values({
+        id: randomUUID(),
         card_id: data.card_id,
         board_id: data.board_id,
         action_type: data.action_type,
@@ -701,7 +710,7 @@ export class KanbanService {
       .execute();
   }
 
-  async getBoardActivity(boardId: number, limit = 50): Promise<any[]> {
+  async getBoardActivity(boardId: string, limit = 50): Promise<any[]> {
     const activities = await this.database.kysely
       .selectFrom('card_activities')
       .innerJoin('cards', 'cards.id', 'card_activities.card_id')
@@ -794,7 +803,7 @@ export class KanbanService {
   }
 
   // Private helper methods
-  private async createDefaultColumns(boardId: number): Promise<void> {
+  private async createDefaultColumns(boardId: string): Promise<void> {
     const defaultColumns = [
       { name: 'To Do', position: 0, color: '#ef4444' },
       { name: 'In Progress', position: 1, color: '#f59e0b' },
@@ -808,6 +817,7 @@ export class KanbanService {
       await this.database.kysely
         .insertInto('columns')
         .values({
+          id: randomUUID(),
           board_id: boardId,
           name: column.name,
           position: column.position,
@@ -817,5 +827,220 @@ export class KanbanService {
         })
         .execute();
     }
+  }
+
+  // Time Tracking operations
+  async createTimeEntry(input: Omit<TimeEntry, 'id' | 'created_at' | 'updated_at'>): Promise<TimeEntry> {
+    const now = new Date().toISOString();
+    
+    const result = await this.database.kysely
+      .insertInto('time_entries')
+      .values({
+        id: randomUUID(),
+        ...input,
+        is_billable: input.is_billable ? 1 : 0, // Convert boolean to integer for SQLite
+        created_at: now,
+        updated_at: now
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+
+    const timeEntry = await this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('id', '=', result.id)
+      .executeTakeFirstOrThrow();
+
+    // Convert SQLite integer back to boolean
+    return {
+      ...timeEntry,
+      is_billable: Boolean(timeEntry.is_billable)
+    };
+  }
+
+  async updateTimeEntry(id: string, input: Partial<Omit<TimeEntry, 'id' | 'card_id' | 'created_at' | 'updated_at'>>): Promise<TimeEntry | null> {
+    const updateData: any = {
+      ...input,
+      updated_at: new Date().toISOString()
+    };
+
+    // Convert boolean to integer for SQLite if present
+    if (input.is_billable !== undefined) {
+      updateData.is_billable = input.is_billable ? 1 : 0;
+    }
+
+    await this.database.kysely
+      .updateTable('time_entries')
+      .set(updateData)
+      .where('id', '=', id)
+      .execute();
+
+    const timeEntry = await this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!timeEntry) return null;
+
+    // Convert SQLite integer back to boolean
+    return {
+      ...timeEntry,
+      is_billable: Boolean(timeEntry.is_billable)
+    };
+  }
+
+  async deleteTimeEntry(id: string): Promise<boolean> {
+    const result = await this.database.kysely
+      .deleteFrom('time_entries')
+      .where('id', '=', id)
+      .execute();
+
+    return result.length > 0;
+  }
+
+  async getTimeEntryById(id: string): Promise<TimeEntry | null> {
+    const timeEntry = await this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!timeEntry) return null;
+
+    // Convert SQLite integer back to boolean
+    return {
+      ...timeEntry,
+      is_billable: Boolean(timeEntry.is_billable)
+    };
+  }
+
+  async getTimeEntriesByCard(cardId: string): Promise<TimeEntry[]> {
+    const timeEntries = await this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('card_id', '=', cardId)
+      .orderBy('created_at', 'desc')
+      .execute();
+
+    // Convert SQLite integers back to booleans
+    return timeEntries.map(entry => ({
+      ...entry,
+      is_billable: Boolean(entry.is_billable)
+    }));
+  }
+
+  async getActiveTimeEntry(cardId?: string): Promise<TimeEntry | null> {
+    let query = this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('end_time', 'is', null);
+
+    if (cardId !== undefined) {
+      query = query.where('card_id', '=', cardId);
+    }
+
+    const timeEntry = await query.executeTakeFirst();
+
+    if (!timeEntry) return null;
+
+    // Convert SQLite integer back to boolean
+    return {
+      ...timeEntry,
+      is_billable: Boolean(timeEntry.is_billable)
+    };
+  }
+
+  async getActiveTimeEntries(): Promise<TimeEntry[]> {
+    const timeEntries = await this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll()
+      .where('end_time', 'is', null)
+      .orderBy('start_time', 'desc')
+      .execute();
+
+    // Convert SQLite integers back to booleans
+    return timeEntries.map(entry => ({
+      ...entry,
+      is_billable: Boolean(entry.is_billable)
+    }));
+  }
+
+  async updateCardActualHours(cardId: string): Promise<void> {
+    // Calculate total actual hours from all time entries for this card
+    const result = await this.database.kysely
+      .selectFrom('time_entries')
+      .select([
+        sql<number>`COALESCE(SUM(duration_minutes), 0)`.as('total_minutes')
+      ])
+      .where('card_id', '=', cardId)
+      .executeTakeFirst();
+
+    const totalHours = result ? Math.round((result.total_minutes / 60) * 100) / 100 : 0;
+
+    // Note: This assumes there's an actual_hours column on cards table
+    // If not, this method would need to be modified or the card schema updated
+    await this.database.kysely
+      .updateTable('cards')
+      .set({ 
+        updated_at: new Date().toISOString()
+        // actual_hours: totalHours // Uncomment if card table has this column
+      })
+      .where('id', '=', cardId)
+      .execute();
+  }
+
+  async getTimeReport(cardId?: string, startDate?: string, endDate?: string): Promise<{
+    totalHours: number;
+    billableHours: number;
+    totalCost: number;
+    entriesCount: number;
+    entries: TimeEntry[];
+  }> {
+    let query = this.database.kysely
+      .selectFrom('time_entries')
+      .selectAll();
+
+    if (cardId !== undefined) {
+      query = query.where('card_id', '=', cardId);
+    }
+
+    if (startDate) {
+      query = query.where('start_time', '>=', startDate);
+    }
+
+    if (endDate) {
+      query = query.where('start_time', '<=', endDate);
+    }
+
+    const timeEntries = await query
+      .orderBy('start_time', 'desc')
+      .execute();
+
+    // Convert SQLite integers back to booleans and calculate totals
+    const entries = timeEntries.map(entry => ({
+      ...entry,
+      is_billable: Boolean(entry.is_billable)
+    }));
+
+    const totalMinutes = entries.reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+    const billableMinutes = entries
+      .filter(entry => entry.is_billable)
+      .reduce((sum, entry) => sum + (entry.duration_minutes || 0), 0);
+
+    const totalCost = entries
+      .filter(entry => entry.is_billable && entry.hourly_rate)
+      .reduce((sum, entry) => {
+        const hours = (entry.duration_minutes || 0) / 60;
+        return sum + (hours * (entry.hourly_rate || 0));
+      }, 0);
+
+    return {
+      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+      billableHours: Math.round((billableMinutes / 60) * 100) / 100,
+      totalCost: Math.round(totalCost * 100) / 100,
+      entriesCount: entries.length,
+      entries
+    };
   }
 }

@@ -9,7 +9,7 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   bundle: true,
-  external: ['better-sqlite3', 'pg', 'mysql2'],
+  external: ['pg'],
   esbuildOptions: (options) => {
     options.platform = 'node';
   }

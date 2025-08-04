@@ -14,13 +14,12 @@ export default defineConfig({
   bundle: true,
   external: [
     // Keep external dependencies as external
-    'better-sqlite3',
-    'mysql2', 
     'pg',
     'marked',
     'zod',
     'gray-matter',
-    'slugify'
+    'slugify',
+    '@mcp-tools/core'
   ],
   env: {
     NODE_ENV: 'production'

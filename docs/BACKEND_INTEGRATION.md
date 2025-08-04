@@ -2,6 +2,8 @@
 
 🔙 **Back to**: [Main Architecture](ARCHITECTURE.md) | 🔍 **See also**: [MCP Server Details](MCP_SERVER_DETAILS.md) | [TypeScript Workers](WORKERS_ARCHITECTURE.md)
 
+**Important**: The backend integration layer uses PostgreSQL-only architecture with UUID primary keys for all entities. UUIDs are generated using PostgreSQL's `gen_random_uuid()` function or Node.js `crypto.randomUUID()` for improved performance and distributed system compatibility.
+
 ## Qdrant Vector Database Integration
 
 🔗 **Related**: [Data Flow Diagrams](DATA_FLOW_DIAGRAMS.md) | [API Specifications](API_SPECIFICATIONS.md)
@@ -430,7 +432,7 @@ export class CacheService {
 ```typescript
 // src/messaging/schemas.ts
 export interface BaseMessage {
-  messageId: string;
+  messageId: string;             // UUID message identifier
   timestamp: Date;
   source: string;
   version: string;
@@ -439,12 +441,12 @@ export interface BaseMessage {
 export interface TaskCreatedMessage extends BaseMessage {
   type: 'task.created';
   data: {
-    taskId: string;
-    boardId: string;
+    taskId: string;              // UUID task identifier
+    boardId: string;             // UUID board identifier
     title: string;
     description: string;
     priority: 'low' | 'medium' | 'high';
-    assigneeId?: string;
+    assigneeId?: string;         // UUID assignee identifier
     tags: string[];
   };
 }
@@ -452,11 +454,11 @@ export interface TaskCreatedMessage extends BaseMessage {
 export interface PageUpdatedMessage extends BaseMessage {
   type: 'page.updated';
   data: {
-    pageId: string;
+    pageId: string;              // UUID page identifier
     title: string;
     content: string;
     category: string;
-    authorId: string;
+    authorId: string;            // UUID author identifier
     tags: string[];
     previousVersion: string;
   };
@@ -465,18 +467,18 @@ export interface PageUpdatedMessage extends BaseMessage {
 export interface MemoryStoredMessage extends BaseMessage {
   type: 'memory.stored';
   data: {
-    memoryId: string;
+    memoryId: string;            // UUID memory identifier
     content: string;
     context: Record<string, any>;
     concepts: string[];
-    authorId: string;
+    authorId: string;            // UUID author identifier
   };
 }
 
 export interface VectorIndexRequest extends BaseMessage {
   type: 'vector.index.request';
   data: {
-    entityId: string;
+    entityId: string;            // UUID entity identifier
     entityType: 'task' | 'page' | 'memory';
     content: string;
     metadata: Record<string, any>;
@@ -486,7 +488,7 @@ export interface VectorIndexRequest extends BaseMessage {
 export interface RelationshipAnalysisRequest extends BaseMessage {
   type: 'relationship.analyze.request';
   data: {
-    entityId: string;
+    entityId: string;            // UUID entity identifier
     entityType: 'task' | 'page' | 'memory';
     content: string;
     context: Record<string, any>;

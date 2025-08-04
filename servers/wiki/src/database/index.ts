@@ -1,6 +1,5 @@
 import { Kysely, Generated, Selectable, Insertable, Updateable, sql } from 'kysely';
-import { SqliteDialect, PostgresDialect } from 'kysely';
-import Database from 'better-sqlite3';
+import { PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 // Database setup is now handled by the dedicated migration service
 
@@ -118,36 +117,26 @@ export type NewComment = Insertable<CommentsTable>;
 export type CommentUpdate = Updateable<CommentsTable>;
 
 export interface DatabaseConfig {
-  type: 'sqlite' | 'postgres' | 'mysql';
-  filename?: string; // SQLite
-  connectionString?: string; // All
-  host?: string; // PostgreSQL/MySQL
-  port?: number; // PostgreSQL/MySQL
-  user?: string; // PostgreSQL/MySQL
-  password?: string; // PostgreSQL/MySQL
-  database?: string; // PostgreSQL/MySQL
+  type: 'postgres';
+  connectionString?: string;
+  host?: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  database?: string;
 }
 
 export class WikiDatabase {
   private db: Kysely<Database>;
-  private sqliteDb?: Database.Database;
-  private dbType: string;
 
   constructor(private config: DatabaseConfig) {
-    this.dbType = config.type;
+    if (config.type !== 'postgres') {
+      throw new Error(`Only PostgreSQL is supported. Received: ${config.type}`);
+    }
+
     let dialect;
-
-    switch (config.type) {
-      case 'sqlite':
-        this.sqliteDb = new Database(config.filename || ':memory:');
-        dialect = new SqliteDialect({
-          database: this.sqliteDb,
-        });
-        break;
-
-      case 'postgres':
-        if (config.connectionString) {
-          dialect = new PostgresDialect({
+    if (config.connectionString) {
+      dialect = new PostgresDialect({
             pool: new Pool({
               connectionString: config.connectionString,
             }),
@@ -163,11 +152,6 @@ export class WikiDatabase {
             }),
           });
         }
-        break;
-
-      default:
-        throw new Error(`Database type ${config.type} not yet implemented`);
-    }
 
     this.db = new Kysely<Database>({ dialect });
   }
@@ -343,42 +327,12 @@ export class WikiDatabase {
 
   // Search operations
   async searchPages(query: string, limit = 50): Promise<Page[]> {
-    if (this.config.type === 'sqlite') {
-      // Use SQLite FTS5
-      const pages = await this.db
-        .selectFrom('pages')
-        .selectAll()
-        .where('id', 'in', (eb) =>
-          eb.selectFrom('pages_fts' as any)
-            .select('rowid' as any)
-            .where('pages_fts' as any, 'match', query)
-        )
-        .limit(limit)
-        .execute();
-      
-      return pages;
-    } else if (this.config.type === 'postgres') {
-      // Use PostgreSQL full-text search with search_vector
-      return await this.db
-        .selectFrom('pages')
-        .selectAll()
-        .where(sql`search_vector @@ to_tsquery('english', ${sql.lit(query)})`)
-        .orderBy(sql`ts_rank(search_vector, to_tsquery('english', ${sql.lit(query)}))`, 'desc')
-        .limit(limit)
-        .execute();
-    }
-    
-    // Fallback to LIKE search for other database types
+    // Use PostgreSQL full-text search with search_vector
     return await this.db
       .selectFrom('pages')
       .selectAll()
-      .where((eb) =>
-        eb.or([
-          eb('title', 'like', `%${query}%`),
-          eb('content', 'like', `%${query}%`),
-          eb('summary', 'like', `%${query}%`),
-        ])
-      )
+      .where(sql`search_vector @@ to_tsquery('english', ${sql.lit(query)})`)
+      .orderBy(sql`ts_rank(search_vector, to_tsquery('english', ${sql.lit(query)}))`, 'desc')
       .limit(limit)
       .execute();
   }
@@ -544,9 +498,6 @@ export class WikiDatabase {
   async close(): Promise<void> {
     if (this.db) {
       await this.db.destroy();
-    }
-    if (this.sqliteDb) {
-      this.sqliteDb.close();
     }
   }
 }

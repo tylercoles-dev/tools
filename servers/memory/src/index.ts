@@ -21,18 +21,16 @@ import {
   createConceptTool
 } from './tools/index.js';
 
-// Environment configuration
+// Environment configuration (PostgreSQL only)
 const config = {
   database: {
-    type: (process.env.DATABASE_TYPE as 'sqlite' | 'postgres') || 'sqlite',
-    file: process.env.DATABASE_FILE || './memory.db',
-    config: {
-      host: process.env.DATABASE_HOST,
-      port: process.env.DATABASE_PORT ? parseInt(process.env.DATABASE_PORT) : undefined,
-      database: process.env.DATABASE_NAME,
-      username: process.env.DATABASE_USER,
-      password: process.env.DATABASE_PASSWORD,
-    }
+    type: 'postgres' as const,
+    connectionString: process.env.DATABASE_URL,
+    host: process.env.DATABASE_HOST,
+    port: process.env.DATABASE_PORT ? parseInt(process.env.DATABASE_PORT) : undefined,
+    database: process.env.DATABASE_NAME,
+    user: process.env.DATABASE_USER,
+    password: process.env.DATABASE_PASSWORD,
   },
   natsUrl: process.env.NATS_URL || 'nats://localhost:4222',
   server: {

@@ -14,11 +14,11 @@ export default defineConfig({
   bundle: true,
   external: [
     // Keep external dependencies as external
-    'better-sqlite3',
     'pg',
     'uuid',
     'zod',
-    'qdrant-client'
+    'qdrant-client',
+    '@mcp-tools/core'
   ],
   env: {
     NODE_ENV: 'production'

@@ -1,5 +1,11 @@
-import Database from 'better-sqlite3';
+/**
+ * Quality Database - PostgreSQL implementation with Kysely
+ */
+
+import { Kysely, sql } from 'kysely';
 import { v4 as uuidv4 } from 'uuid';
+import { DatabaseConnectionManager, createDatabaseConfig } from '../../utils/database.js';
+import type { DatabaseConfig } from '../../utils/database.js';
 import type {
   QualityMetric,
   TechnicalDebtItem,
@@ -11,186 +17,150 @@ import type {
   DependencyHealth
 } from './types.js';
 
-export class QualityDatabase {
-  private db: Database.Database;
+// Database schema interfaces
+export interface QualityDatabase {
+  quality_metrics: {
+    id?: string;
+    project_name: string;
+    commit_hash: string;
+    branch_name: string;
+    metric_type: string;
+    metric_name: string;
+    metric_value: number;
+    metric_unit: string | null;
+    timestamp: string;
+    metadata: string | null;
+  };
+  technical_debt_items: {
+    id?: string;
+    file_path: string;
+    line_number: number;
+    debt_type: string;
+    message: string;
+    severity: string;
+    author: string | null;
+    commit_hash: string | null;
+    created_at: string;
+    resolved_at: string | null;
+    resolution_commit: string | null;
+    estimated_effort: number | null;
+    category: string | null;
+  };
+  security_vulnerabilities: {
+    id?: string;
+    package_name: string;
+    version: string;
+    vulnerability_id: string;
+    severity: string;
+    title: string;
+    description: string;
+    solution: string | null;
+    detected_at: string;
+    resolved_at: string | null;
+    false_positive: boolean;
+  };
+  performance_budgets: {
+    id?: string;
+    bundle_name: string;
+    type: string;
+    maximum_warning: string;
+    maximum_error: string;
+    current_size: string;
+    is_compliant: boolean;
+    last_checked: string;
+  };
+  code_complexity_metrics: {
+    id?: string;
+    file_path: string;
+    function_name: string;
+    cyclomatic_complexity: number;
+    cognitive_complexity: number;
+    lines_of_code: number;
+    maintainability_index: number;
+    severity: string;
+    measured_at: string;
+  };
+  quality_gates: {
+    id?: string;
+    name: string;
+    enabled: boolean;
+    rules: string; // JSON
+    created_at: string;
+    updated_at: string;
+  };
+  quality_reports: {
+    id?: string;
+    project_name: string;
+    commit_hash: string;
+    branch_name: string;
+    generated_at: string;
+    report_data: string; // JSON
+  };
+  dependency_health: {
+    id?: string;
+    package_name: string;
+    current_version: string;
+    latest_version: string;
+    is_outdated: boolean;
+    security_vulnerabilities: number;
+    license_compliance: boolean;
+    maintenance_status: string;
+    last_updated: string;
+    health_score: number;
+    checked_at: string;
+  };
+}
 
-  constructor(dbPath: string = ':memory:') {
-    this.db = new Database(dbPath);
-    this.initializeSchema();
+export class QualityDatabase {
+  private dbManager: DatabaseConnectionManager<QualityDatabase>;
+
+  constructor(config?: Partial<DatabaseConfig>) {
+    const dbConfig = createDatabaseConfig({
+      database: 'quality_db',
+      ...config
+    });
+    this.dbManager = new DatabaseConnectionManager<QualityDatabase>(dbConfig);
   }
 
-  private initializeSchema(): void {
-    // Quality metrics table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS quality_metrics (
-        id TEXT PRIMARY KEY,
-        project_name TEXT NOT NULL,
-        commit_hash TEXT NOT NULL,
-        branch_name TEXT NOT NULL,
-        metric_type TEXT NOT NULL,
-        metric_name TEXT NOT NULL,
-        metric_value REAL NOT NULL,
-        metric_unit TEXT,
-        timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-        metadata TEXT
-      );
-    `);
+  async initialize(): Promise<void> {
+    await this.dbManager.initialize();
+    // Tables are created by migrations - just test the connection
+    await this.testConnection();
+  }
 
-    // Technical debt items table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS technical_debt_items (
-        id TEXT PRIMARY KEY,
-        file_path TEXT NOT NULL,
-        line_number INTEGER NOT NULL,
-        debt_type TEXT NOT NULL,
-        message TEXT NOT NULL,
-        severity TEXT NOT NULL,
-        author TEXT,
-        commit_hash TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TEXT,
-        resolution_commit TEXT,
-        estimated_effort REAL,
-        category TEXT
-      );
-    `);
+  get db(): Kysely<QualityDatabase> {
+    return this.dbManager.kysely;
+  }
 
-    // Security vulnerabilities table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS security_vulnerabilities (
-        id TEXT PRIMARY KEY,
-        package_name TEXT NOT NULL,
-        version TEXT NOT NULL,
-        vulnerability_id TEXT NOT NULL,
-        severity TEXT NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT NOT NULL,
-        solution TEXT,
-        detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        resolved_at TEXT,
-        false_positive BOOLEAN DEFAULT FALSE
-      );
-    `);
-
-    // Performance budgets table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS performance_budgets (
-        id TEXT PRIMARY KEY,
-        bundle_name TEXT NOT NULL,
-        type TEXT NOT NULL,
-        maximum_warning TEXT NOT NULL,
-        maximum_error TEXT NOT NULL,
-        current_size TEXT NOT NULL,
-        is_compliant BOOLEAN NOT NULL,
-        last_checked TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Code complexity metrics table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS code_complexity_metrics (
-        id TEXT PRIMARY KEY,
-        file_path TEXT NOT NULL,
-        function_name TEXT NOT NULL,
-        cyclomatic_complexity INTEGER NOT NULL,
-        cognitive_complexity INTEGER NOT NULL,
-        lines_of_code INTEGER NOT NULL,
-        maintainability_index REAL NOT NULL,
-        severity TEXT NOT NULL,
-        measured_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Quality gates table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS quality_gates (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        enabled BOOLEAN DEFAULT TRUE,
-        rules TEXT NOT NULL, -- JSON
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Quality reports table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS quality_reports (
-        id TEXT PRIMARY KEY,
-        project_name TEXT NOT NULL,
-        commit_hash TEXT NOT NULL,
-        branch_name TEXT NOT NULL,
-        generated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        report_data TEXT NOT NULL -- JSON
-      );
-    `);
-
-    // Dependency health table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS dependency_health (
-        id TEXT PRIMARY KEY,
-        package_name TEXT NOT NULL,
-        current_version TEXT NOT NULL,
-        latest_version TEXT NOT NULL,
-        is_outdated BOOLEAN NOT NULL,
-        security_vulnerabilities INTEGER NOT NULL,
-        license_compliance BOOLEAN NOT NULL,
-        maintenance_status TEXT NOT NULL,
-        last_updated TEXT NOT NULL,
-        health_score REAL NOT NULL,
-        checked_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // Create indexes for better performance
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_quality_metrics_project_time 
-      ON quality_metrics(project_name, timestamp);
-      
-      CREATE INDEX IF NOT EXISTS idx_technical_debt_file 
-      ON technical_debt_items(file_path, resolved_at);
-      
-      CREATE INDEX IF NOT EXISTS idx_security_vulnerabilities_severity 
-      ON security_vulnerabilities(severity, resolved_at);
-      
-      CREATE INDEX IF NOT EXISTS idx_performance_budgets_compliance 
-      ON performance_budgets(is_compliant, last_checked);
-      
-      CREATE INDEX IF NOT EXISTS idx_complexity_severity 
-      ON code_complexity_metrics(severity, measured_at);
-      
-      CREATE INDEX IF NOT EXISTS idx_quality_reports_project 
-      ON quality_reports(project_name, generated_at);
-      
-      CREATE INDEX IF NOT EXISTS idx_dependency_health_score 
-      ON dependency_health(health_score, checked_at);
-    `);
+  private async testConnection(): Promise<void> {
+    try {
+      await this.db.selectFrom('quality_metrics').select('id').limit(1).execute();
+      console.log('✅ Quality database connection verified successfully');
+    } catch (error) {
+      console.error('❌ Quality database connection failed. Ensure migration service has completed:', error);
+      throw new Error('Quality database not available. Migration service may not have completed successfully.');
+    }
   }
 
   // Quality Metrics operations
   async insertQualityMetric(metric: Omit<QualityMetric, 'id'>): Promise<string> {
-    const id = uuidv4();
-    const stmt = this.db.prepare(`
-      INSERT INTO quality_metrics 
-      (id, project_name, commit_hash, branch_name, metric_type, metric_name, 
-       metric_value, metric_unit, timestamp, metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const result = await this.db
+      .insertInto('quality_metrics')
+      .values({
+        project_name: metric.projectName,
+        commit_hash: metric.commitHash,
+        branch_name: metric.branchName,
+        metric_type: metric.metricType,
+        metric_name: metric.metricName,
+        metric_value: metric.metricValue,
+        metric_unit: metric.metricUnit || null,
+        timestamp: metric.timestamp,
+        metadata: metric.metadata ? JSON.stringify(metric.metadata) : null
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
     
-    stmt.run(
-      id,
-      metric.projectName,
-      metric.commitHash,
-      metric.branchName,
-      metric.metricType,
-      metric.metricName,
-      metric.metricValue,
-      metric.metricUnit || null,
-      metric.timestamp,
-      metric.metadata ? JSON.stringify(metric.metadata) : null
-    );
-    
-    return id;
+    return result.id!;
   }
 
   async getQualityMetrics(
@@ -198,25 +168,21 @@ export class QualityDatabase {
     metricType?: string,
     limit: number = 100
   ): Promise<QualityMetric[]> {
-    let query = `
-      SELECT * FROM quality_metrics 
-      WHERE project_name = ?
-    `;
-    const params: any[] = [projectName];
+    let query = this.db
+      .selectFrom('quality_metrics')
+      .selectAll()
+      .where('project_name', '=', projectName);
 
     if (metricType) {
-      query += ` AND metric_type = ?`;
-      params.push(metricType);
+      query = query.where('metric_type', '=', metricType);
     }
 
-    query += ` ORDER BY timestamp DESC LIMIT ?`;
-    params.push(limit);
+    query = query.orderBy('timestamp', 'desc').limit(limit);
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = await query.execute();
 
     return rows.map(row => ({
-      id: row.id,
+      id: row.id!,
       projectName: row.project_name,
       commitHash: row.commit_hash,
       branchName: row.branch_name,
@@ -226,65 +192,57 @@ export class QualityDatabase {
       metricUnit: row.metric_unit,
       timestamp: row.timestamp,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined
-    }));
+    })) as QualityMetric[];
   }
 
   // Technical Debt operations
   async insertTechnicalDebtItem(item: Omit<TechnicalDebtItem, 'id'>): Promise<string> {
-    const id = uuidv4();
-    const stmt = this.db.prepare(`
-      INSERT INTO technical_debt_items 
-      (id, file_path, line_number, debt_type, message, severity, author, 
-       commit_hash, created_at, resolved_at, resolution_commit, estimated_effort, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const result = await this.db
+      .insertInto('technical_debt_items')
+      .values({
+        file_path: item.filePath,
+        line_number: item.lineNumber,
+        debt_type: item.debtType,
+        message: item.message,
+        severity: item.severity,
+        author: item.author || null,
+        commit_hash: item.commitHash || null,
+        created_at: item.createdAt,
+        resolved_at: item.resolvedAt || null,
+        resolution_commit: item.resolutionCommit || null,
+        estimated_effort: item.estimatedEffort || null,
+        category: item.category || null
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
     
-    stmt.run(
-      id,
-      item.filePath,
-      item.lineNumber,
-      item.debtType,
-      item.message,
-      item.severity,
-      item.author || null,
-      item.commitHash || null,
-      item.createdAt,
-      item.resolvedAt || null,
-      item.resolutionCommit || null,
-      item.estimatedEffort || null,
-      item.category || null
-    );
-    
-    return id;
+    return result.id!;
   }
 
   async getTechnicalDebtItems(
     filePath?: string,
     resolved?: boolean
   ): Promise<TechnicalDebtItem[]> {
-    let query = `SELECT * FROM technical_debt_items WHERE 1=1`;
-    const params: any[] = [];
+    let query = this.db.selectFrom('technical_debt_items').selectAll();
 
     if (filePath) {
-      query += ` AND file_path = ?`;
-      params.push(filePath);
+      query = query.where('file_path', '=', filePath);
     }
 
     if (resolved !== undefined) {
       if (resolved) {
-        query += ` AND resolved_at IS NOT NULL`;
+        query = query.where('resolved_at', 'is not', null);
       } else {
-        query += ` AND resolved_at IS NULL`;
+        query = query.where('resolved_at', 'is', null);
       }
     }
 
-    query += ` ORDER BY created_at DESC`;
+    query = query.orderBy('created_at', 'desc');
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = await query.execute();
 
     return rows.map(row => ({
-      id: row.id,
+      id: row.id!,
       filePath: row.file_path,
       lineNumber: row.line_number,
       debtType: row.debt_type,
@@ -297,64 +255,59 @@ export class QualityDatabase {
       resolutionCommit: row.resolution_commit,
       estimatedEffort: row.estimated_effort,
       category: row.category
-    }));
+    })) as TechnicalDebtItem[];
   }
 
   async resolveTechnicalDebtItem(id: string, resolutionCommit: string): Promise<void> {
-    const stmt = this.db.prepare(`
-      UPDATE technical_debt_items 
-      SET resolved_at = CURRENT_TIMESTAMP, resolution_commit = ?
-      WHERE id = ?
-    `);
-    stmt.run(resolutionCommit, id);
+    await this.db
+      .updateTable('technical_debt_items')
+      .set({ 
+        resolved_at: sql`CURRENT_TIMESTAMP`, 
+        resolution_commit: resolutionCommit 
+      })
+      .where('id', '=', id)
+      .execute();
   }
 
   // Security Vulnerabilities operations
   async insertSecurityVulnerability(vuln: Omit<SecurityVulnerability, 'id'>): Promise<string> {
-    const id = uuidv4();
-    const stmt = this.db.prepare(`
-      INSERT INTO security_vulnerabilities 
-      (id, package_name, version, vulnerability_id, severity, title, description, 
-       solution, detected_at, resolved_at, false_positive)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const result = await this.db
+      .insertInto('security_vulnerabilities')
+      .values({
+        package_name: vuln.packageName,
+        version: vuln.version,
+        vulnerability_id: vuln.vulnerabilityId,
+        severity: vuln.severity,
+        title: vuln.title,
+        description: vuln.description,
+        solution: vuln.solution || null,
+        detected_at: vuln.detectedAt,
+        resolved_at: vuln.resolvedAt || null,
+        false_positive: vuln.falsePositive
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
     
-    stmt.run(
-      id,
-      vuln.packageName,
-      vuln.version,
-      vuln.vulnerabilityId,
-      vuln.severity,
-      vuln.title,
-      vuln.description,
-      vuln.solution || null,
-      vuln.detectedAt,
-      vuln.resolvedAt || null,
-      vuln.falsePositive
-    );
-    
-    return id;
+    return result.id!;
   }
 
   async getSecurityVulnerabilities(resolved?: boolean): Promise<SecurityVulnerability[]> {
-    let query = `SELECT * FROM security_vulnerabilities WHERE 1=1`;
-    const params: any[] = [];
+    let query = this.db.selectFrom('security_vulnerabilities').selectAll();
 
     if (resolved !== undefined) {
       if (resolved) {
-        query += ` AND resolved_at IS NOT NULL`;
+        query = query.where('resolved_at', 'is not', null);
       } else {
-        query += ` AND resolved_at IS NULL`;
+        query = query.where('resolved_at', 'is', null);
       }
     }
 
-    query += ` ORDER BY detected_at DESC`;
+    query = query.orderBy('detected_at', 'desc');
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as any[];
+    const rows = await query.execute();
 
     return rows.map(row => ({
-      id: row.id,
+      id: row.id!,
       packageName: row.package_name,
       version: row.version,
       vulnerabilityId: row.vulnerability_id,
@@ -364,111 +317,349 @@ export class QualityDatabase {
       solution: row.solution,
       detectedAt: row.detected_at,
       resolvedAt: row.resolved_at,
-      falsePositive: Boolean(row.false_positive)
-    }));
+      falsePositive: row.false_positive
+    })) as SecurityVulnerability[];
   }
 
   // Performance Budget operations
   async upsertPerformanceBudget(budget: Omit<PerformanceBudget, 'id'>): Promise<string> {
     // First try to find existing budget by bundle name and type
-    const existingStmt = this.db.prepare(`
-      SELECT id FROM performance_budgets 
-      WHERE bundle_name = ? AND type = ?
-    `);
-    const existing = existingStmt.get(budget.bundleName, budget.type) as any;
+    const existing = await this.db
+      .selectFrom('performance_budgets')
+      .select('id')
+      .where('bundle_name', '=', budget.bundleName)
+      .where('type', '=', budget.type)
+      .executeTakeFirst();
 
     if (existing) {
       // Update existing
-      const updateStmt = this.db.prepare(`
-        UPDATE performance_budgets 
-        SET maximum_warning = ?, maximum_error = ?, current_size = ?, 
-            is_compliant = ?, last_checked = ?
-        WHERE id = ?
-      `);
-      updateStmt.run(
-        budget.maximumWarning,
-        budget.maximumError,
-        budget.currentSize,
-        budget.isCompliant,
-        budget.lastChecked,
-        existing.id
-      );
-      return existing.id;
+      await this.db
+        .updateTable('performance_budgets')
+        .set({
+          maximum_warning: budget.maximumWarning,
+          maximum_error: budget.maximumError,
+          current_size: budget.currentSize,
+          is_compliant: budget.isCompliant,
+          last_checked: budget.lastChecked
+        })
+        .where('id', '=', existing.id)
+        .execute();
+      return existing.id!;
     } else {
       // Insert new
-      const id = uuidv4();
-      const insertStmt = this.db.prepare(`
-        INSERT INTO performance_budgets 
-        (id, bundle_name, type, maximum_warning, maximum_error, current_size, 
-         is_compliant, last_checked)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      insertStmt.run(
-        id,
-        budget.bundleName,
-        budget.type,
-        budget.maximumWarning,
-        budget.maximumError,
-        budget.currentSize,
-        budget.isCompliant,
-        budget.lastChecked
-      );
-      return id;
+      const result = await this.db
+        .insertInto('performance_budgets')
+        .values({
+          bundle_name: budget.bundleName,
+          type: budget.type,
+          maximum_warning: budget.maximumWarning,
+          maximum_error: budget.maximumError,
+          current_size: budget.currentSize,
+          is_compliant: budget.isCompliant,
+          last_checked: budget.lastChecked
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      return result.id!;
     }
   }
 
   async getPerformanceBudgets(): Promise<PerformanceBudget[]> {
-    const stmt = this.db.prepare(`
-      SELECT * FROM performance_budgets 
-      ORDER BY last_checked DESC
-    `);
-    const rows = stmt.all() as any[];
+    const rows = await this.db
+      .selectFrom('performance_budgets')
+      .selectAll()
+      .orderBy('last_checked', 'desc')
+      .execute();
 
     return rows.map(row => ({
-      id: row.id,
+      id: row.id!,
       bundleName: row.bundle_name,
       type: row.type,
       maximumWarning: row.maximum_warning,
       maximumError: row.maximum_error,
       currentSize: row.current_size,
-      isCompliant: Boolean(row.is_compliant),
+      isCompliant: row.is_compliant,
       lastChecked: row.last_checked
-    }));
+    })) as PerformanceBudget[];
+  }
+
+  // Code Complexity Metrics operations
+  async insertCodeComplexityMetric(metric: Omit<CodeComplexityMetric, 'id'>): Promise<string> {
+    const result = await this.db
+      .insertInto('code_complexity_metrics')
+      .values({
+        file_path: metric.filePath,
+        function_name: metric.functionName,
+        cyclomatic_complexity: metric.cyclomaticComplexity,
+        cognitive_complexity: metric.cognitiveComplexity,
+        lines_of_code: metric.linesOfCode,
+        maintainability_index: metric.maintainabilityIndex,
+        severity: metric.severity,
+        measured_at: metric.measuredAt
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    
+    return result.id!;
+  }
+
+  async getCodeComplexityMetrics(
+    filePath?: string,
+    severity?: string,
+    limit: number = 100
+  ): Promise<CodeComplexityMetric[]> {
+    let query = this.db.selectFrom('code_complexity_metrics').selectAll();
+
+    if (filePath) {
+      query = query.where('file_path', '=', filePath);
+    }
+    if (severity) {
+      query = query.where('severity', '=', severity);
+    }
+
+    query = query.orderBy('measured_at', 'desc').limit(limit);
+
+    const rows = await query.execute();
+
+    return rows.map(row => ({
+      id: row.id!,
+      filePath: row.file_path,
+      functionName: row.function_name,
+      cyclomaticComplexity: row.cyclomatic_complexity,
+      cognitiveComplexity: row.cognitive_complexity,
+      linesOfCode: row.lines_of_code,
+      maintainabilityIndex: row.maintainability_index,
+      severity: row.severity,
+      measuredAt: row.measured_at
+    })) as CodeComplexityMetric[];
+  }
+
+  // Quality Gate operations
+  async createQualityGate(gate: Omit<QualityGateConfig, 'id'>): Promise<string> {
+    const result = await this.db
+      .insertInto('quality_gates')
+      .values({
+        name: gate.name,
+        enabled: gate.enabled,
+        rules: JSON.stringify(gate.rules),
+        created_at: gate.createdAt,
+        updated_at: gate.updatedAt
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    
+    return result.id!;
+  }
+
+  async getQualityGate(id: string): Promise<QualityGateConfig | null> {
+    const row = await this.db
+      .selectFrom('quality_gates')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+
+    if (!row) return null;
+
+    return {
+      id: row.id!,
+      name: row.name,
+      enabled: row.enabled,
+      rules: JSON.parse(row.rules as string),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    } as QualityGateConfig;
+  }
+
+  async getAllQualityGates(): Promise<QualityGateConfig[]> {
+    const rows = await this.db
+      .selectFrom('quality_gates')
+      .selectAll()
+      .orderBy('created_at', 'desc')
+      .execute();
+
+    return rows.map(row => ({
+      id: row.id!,
+      name: row.name,
+      enabled: row.enabled,
+      rules: JSON.parse(row.rules as string),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })) as QualityGateConfig[];
+  }
+
+  async updateQualityGate(id: string, updates: Partial<QualityGateConfig>): Promise<QualityGateConfig> {
+    const setValues: any = { ...updates };
+    if (setValues.rules) {
+      setValues.rules = JSON.stringify(setValues.rules);
+    }
+    if (setValues.updatedAt) {
+      setValues.updated_at = setValues.updatedAt;
+      delete setValues.updatedAt;
+    }
+
+    const result = await this.db
+      .updateTable('quality_gates')
+      .set({ ...setValues, updated_at: sql`CURRENT_TIMESTAMP` })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    return {
+      id: result.id!,
+      name: result.name,
+      enabled: result.enabled,
+      rules: JSON.parse(result.rules as string),
+      createdAt: result.created_at,
+      updatedAt: result.updated_at
+    } as QualityGateConfig;
+  }
+
+  async deleteQualityGate(id: string): Promise<void> {
+    await this.db
+      .deleteFrom('quality_gates')
+      .where('id', '=', id)
+      .execute();
+  }
+
+  // Dependency Health operations
+  async upsertDependencyHealth(health: Omit<DependencyHealth, 'id'>): Promise<string> {
+    // First try to find existing record by package name
+    const existing = await this.db
+      .selectFrom('dependency_health')
+      .select('id')
+      .where('package_name', '=', health.packageName)
+      .executeTakeFirst();
+
+    if (existing) {
+      // Update existing
+      await this.db
+        .updateTable('dependency_health')
+        .set({
+          current_version: health.currentVersion,
+          latest_version: health.latestVersion,
+          is_outdated: health.isOutdated,
+          security_vulnerabilities: health.securityVulnerabilities,
+          license_compliance: health.licenseCompliance,
+          maintenance_status: health.maintenanceStatus,
+          last_updated: health.lastUpdated,
+          health_score: health.healthScore,
+          checked_at: health.checkedAt
+        })
+        .where('id', '=', existing.id)
+        .execute();
+      return existing.id!;
+    } else {
+      // Insert new
+      const result = await this.db
+        .insertInto('dependency_health')
+        .values({
+          package_name: health.packageName,
+          current_version: health.currentVersion,
+          latest_version: health.latestVersion,
+          is_outdated: health.isOutdated,
+          security_vulnerabilities: health.securityVulnerabilities,
+          license_compliance: health.licenseCompliance,
+          maintenance_status: health.maintenanceStatus,
+          last_updated: health.lastUpdated,
+          health_score: health.healthScore,
+          checked_at: health.checkedAt
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      return result.id!;
+    }
+  }
+
+  async getDependencyHealth(packageName?: string): Promise<DependencyHealth[]> {
+    let query = this.db.selectFrom('dependency_health').selectAll();
+
+    if (packageName) {
+      query = query.where('package_name', '=', packageName);
+    }
+
+    query = query.orderBy('health_score', 'asc'); // Show worst health first
+
+    const rows = await query.execute();
+
+    return rows.map(row => ({
+      id: row.id!,
+      packageName: row.package_name,
+      currentVersion: row.current_version,
+      latestVersion: row.latest_version,
+      isOutdated: row.is_outdated,
+      securityVulnerabilities: row.security_vulnerabilities,
+      licenseCompliance: row.license_compliance,
+      maintenanceStatus: row.maintenance_status,
+      lastUpdated: row.last_updated,
+      healthScore: row.health_score,
+      checkedAt: row.checked_at
+    })) as DependencyHealth[];
+  }
+
+  async getOutdatedDependencies(): Promise<DependencyHealth[]> {
+    const rows = await this.db
+      .selectFrom('dependency_health')
+      .selectAll()
+      .where('is_outdated', '=', true)
+      .orderBy('health_score', 'asc')
+      .execute();
+
+    return rows.map(row => ({
+      id: row.id!,
+      packageName: row.package_name,
+      currentVersion: row.current_version,
+      latestVersion: row.latest_version,
+      isOutdated: row.is_outdated,
+      securityVulnerabilities: row.security_vulnerabilities,
+      licenseCompliance: row.license_compliance,
+      maintenanceStatus: row.maintenance_status,
+      lastUpdated: row.last_updated,
+      healthScore: row.health_score,
+      checkedAt: row.checked_at
+    })) as DependencyHealth[];
   }
 
   // Quality Reports operations
   async saveQualityReport(report: Omit<QualityReport, 'id'>): Promise<string> {
-    const id = uuidv4();
-    const stmt = this.db.prepare(`
-      INSERT INTO quality_reports 
-      (id, project_name, commit_hash, branch_name, generated_at, report_data)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
+    const result = await this.db
+      .insertInto('quality_reports')
+      .values({
+        project_name: report.projectName,
+        commit_hash: report.commitHash,
+        branch_name: report.branchName,
+        generated_at: report.generatedAt,
+        report_data: JSON.stringify(report)
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
     
-    stmt.run(
-      id,
-      report.projectName,
-      report.commitHash,
-      report.branchName,
-      report.generatedAt,
-      JSON.stringify(report)
-    );
-    
-    return id;
+    return result.id!;
   }
 
   async getLatestQualityReport(projectName: string): Promise<QualityReport | null> {
-    const stmt = this.db.prepare(`
-      SELECT * FROM quality_reports 
-      WHERE project_name = ? 
-      ORDER BY generated_at DESC 
-      LIMIT 1
-    `);
-    const row = stmt.get(projectName) as any;
+    const row = await this.db
+      .selectFrom('quality_reports')
+      .selectAll()
+      .where('project_name', '=', projectName)
+      .orderBy('generated_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
 
     if (!row) return null;
 
-    return JSON.parse(row.report_data);
+    return JSON.parse(row.report_data as string);
+  }
+
+  async getQualityReports(projectName: string, limit: number = 10): Promise<QualityReport[]> {
+    const rows = await this.db
+      .selectFrom('quality_reports')
+      .selectAll()
+      .where('project_name', '=', projectName)
+      .orderBy('generated_at', 'desc')
+      .limit(limit)
+      .execute();
+
+    return rows.map(row => JSON.parse(row.report_data as string));
   }
 
   // Utility methods
@@ -477,15 +668,19 @@ export class QualityDatabase {
     metricName: string,
     days: number = 30
   ): Promise<Array<{ timestamp: string; value: number }>> {
-    const stmt = this.db.prepare(`
-      SELECT timestamp, metric_value as value
-      FROM quality_metrics 
-      WHERE project_name = ? AND metric_name = ?
-        AND datetime(timestamp) >= datetime('now', '-${days} days')
-      ORDER BY timestamp ASC
-    `);
+    const results = await this.db
+      .selectFrom('quality_metrics')
+      .select(['timestamp', 'metric_value as value'])
+      .where('project_name', '=', projectName)
+      .where('metric_name', '=', metricName)
+      .where('timestamp', '>=', sql<string>`CURRENT_TIMESTAMP - INTERVAL '${sql.raw(days.toString())} days'`)
+      .orderBy('timestamp', 'asc')
+      .execute();
     
-    return stmt.all(projectName, metricName) as Array<{ timestamp: string; value: number }>;
+    return results.map(r => ({
+      timestamp: r.timestamp,
+      value: Number(r.value)
+    }));
   }
 
   async getDashboardStats(projectName: string): Promise<{
@@ -493,49 +688,65 @@ export class QualityDatabase {
     unresolvedDebtItems: number;
     securityVulnerabilities: number;
     budgetViolations: number;
+    highComplexityFunctions: number;
+    outdatedDependencies: number;
     latestQualityScore: number | null;
   }> {
-    const debtStmt = this.db.prepare(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(CASE WHEN resolved_at IS NULL THEN 1 END) as unresolved
-      FROM technical_debt_items
-    `);
-    const debtStats = debtStmt.get() as any;
+    const [debtStats, securityStats, budgetStats, complexityStats, dependencyStats, qualityStats] = await Promise.all([
+      this.db
+        .selectFrom('technical_debt_items')
+        .select([
+          sql`COUNT(*)`.as('total'),
+          sql`COUNT(CASE WHEN resolved_at IS NULL THEN 1 END)`.as('unresolved')
+        ])
+        .executeTakeFirstOrThrow(),
+      
+      this.db
+        .selectFrom('security_vulnerabilities')
+        .select(sql`COUNT(*)`.as('count'))
+        .where('resolved_at', 'is', null)
+        .executeTakeFirstOrThrow(),
+      
+      this.db
+        .selectFrom('performance_budgets')
+        .select(sql`COUNT(*)`.as('count'))
+        .where('is_compliant', '=', false)
+        .executeTakeFirstOrThrow(),
 
-    const securityStmt = this.db.prepare(`
-      SELECT COUNT(*) as count
-      FROM security_vulnerabilities
-      WHERE resolved_at IS NULL
-    `);
-    const securityStats = securityStmt.get() as any;
+      this.db
+        .selectFrom('code_complexity_metrics')
+        .select(sql`COUNT(*)`.as('count'))
+        .where('severity', 'in', ['high', 'critical'])
+        .executeTakeFirstOrThrow(),
 
-    const budgetStmt = this.db.prepare(`
-      SELECT COUNT(*) as count
-      FROM performance_budgets
-      WHERE is_compliant = FALSE
-    `);
-    const budgetStats = budgetStmt.get() as any;
-
-    const qualityStmt = this.db.prepare(`
-      SELECT metric_value
-      FROM quality_metrics
-      WHERE project_name = ? AND metric_name = 'overall_quality_score'
-      ORDER BY timestamp DESC
-      LIMIT 1
-    `);
-    const qualityStats = qualityStmt.get(projectName) as any;
+      this.db
+        .selectFrom('dependency_health')
+        .select(sql`COUNT(*)`.as('count'))
+        .where('is_outdated', '=', true)
+        .executeTakeFirstOrThrow(),
+      
+      this.db
+        .selectFrom('quality_metrics')
+        .select('metric_value')
+        .where('project_name', '=', projectName)
+        .where('metric_name', '=', 'overall_quality_score')
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+    ]);
 
     return {
-      totalDebtItems: debtStats.total,
-      unresolvedDebtItems: debtStats.unresolved,
-      securityVulnerabilities: securityStats.count,
-      budgetViolations: budgetStats.count,
-      latestQualityScore: qualityStats?.metric_value || null
+      totalDebtItems: Number(debtStats.total),
+      unresolvedDebtItems: Number(debtStats.unresolved),
+      securityVulnerabilities: Number(securityStats.count),
+      budgetViolations: Number(budgetStats.count),
+      highComplexityFunctions: Number(complexityStats.count),
+      outdatedDependencies: Number(dependencyStats.count),
+      latestQualityScore: qualityStats ? Number(qualityStats.metric_value) : null
     };
   }
 
-  close(): void {
-    this.db.close();
+  async close(): Promise<void> {
+    await this.dbManager.close();
   }
 }

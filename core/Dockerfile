@@ -5,11 +5,13 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY core/package*.json ./
+RUN npm install --omit=dev
 
 # Copy source code
-COPY . .
+COPY core/src ./src
+COPY core/tsconfig*.json ./
+COPY core/tsup.config.ts ./
 
 # Build the core package
 RUN npm run build

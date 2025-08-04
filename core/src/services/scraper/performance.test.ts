@@ -25,10 +25,10 @@ describe('Scraper Performance Metrics', () => {
     // Reset the ID counter for each test
     idCounter = 0;
     
-    // Use in-memory SQLite for testing
+    // Use PostgreSQL for testing
     const config = createDatabaseConfig({
-      type: 'sqlite',
-      filename: ':memory:'
+      type: 'postgres',
+      connectionString: process.env.TEST_DATABASE_URL || 'postgresql://postgres:password@localhost:5432/mcp_tools_test'
     });
     
     databaseManager = new ScraperDatabaseManager(config);

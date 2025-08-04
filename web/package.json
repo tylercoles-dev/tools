@@ -52,7 +52,6 @@
   "dependencies": {
     "@headlessui/react": "^2.0.4",
     "@hookform/resolvers": "^3.3.4",
-    "@mcp-tools/core": "file:../core",
     "@radix-ui/react-dialog": "^1.1.14",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-progress": "^1.1.7",
