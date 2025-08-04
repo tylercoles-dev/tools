@@ -44,15 +44,9 @@ npm run dev
 
 ### 🗄️ **Database Setup**
 
-The server supports multiple database types:
+The server uses PostgreSQL database:
 
-#### SQLite (Default - No setup required)
-```bash
-# Uses ./memory.db file automatically
-npm run db:migrate
-```
-
-#### PostgreSQL
+#### PostgreSQL Setup
 ```bash
 # Set environment variables
 export DATABASE_TYPE=postgres

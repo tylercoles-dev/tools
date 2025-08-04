@@ -81,7 +81,7 @@ interface TimeEntryTable {
   start_time: string | null;
   end_time: string | null;
   duration_minutes: number | null;
-  is_billable: number; // SQLite uses integer for boolean
+  is_billable: boolean;
   hourly_rate: number | null;
   created_at: string;
   updated_at: string;

@@ -1,5 +1,5 @@
 -- Wiki Database Schema
--- Compatible with SQLite, PostgreSQL, and MySQL
+-- Compatible with PostgreSQL
 
 -- Pages table - stores wiki pages
 CREATE TABLE IF NOT EXISTS pages (

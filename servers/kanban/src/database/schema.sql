@@ -1,5 +1,5 @@
 -- Kanban Board Database Schema
--- Supports SQLite, PostgreSQL, MySQL, and other SQL databases
+-- Supports PostgreSQL
 
 -- Boards table
 CREATE TABLE IF NOT EXISTS boards (

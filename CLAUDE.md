@@ -250,7 +250,7 @@ If you see module resolution errors:
 
 ### Database Requirements
 - **PostgreSQL Only**: System exclusively supports PostgreSQL for production
-- **No SQLite Support**: Individual server database layers are deprecated
+- **PostgreSQL Only**: Individual server database layers are deprecated in favor of centralized PostgreSQL
 - **Centralized Migrations**: All schema management through `migrations/` directory
 - **UUID Primary Keys**: Mandatory for all tables for distributed performance
 

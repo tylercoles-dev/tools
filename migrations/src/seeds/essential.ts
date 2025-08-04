@@ -23,35 +23,31 @@ export const systemConfigSeed: SeedData = {
     await db.insertInto('data_retention_policies')
       .values([
         {
-          id: 'audit_logs_retention',
           table_name: 'audit_logs',
           retention_days: 365, // Keep audit logs for 1 year
           conditions: '{}',
           is_active: true
         },
         {
-          id: 'user_activity_streams_retention',
           table_name: 'user_activity_streams',
           retention_days: 90, // Keep activity streams for 90 days
           conditions: '{}',
           is_active: true
         },
         {
-          id: 'api_performance_metrics_retention',
           table_name: 'api_performance_metrics',
           retention_days: 30, // Keep performance metrics for 30 days
           conditions: '{}',
           is_active: true
         },
         {
-          id: 'collaboration_events_retention',
           table_name: 'collaboration_events',
           retention_days: 30, // Keep collaboration events for 30 days
           conditions: '{}',
           is_active: true
         }
       ])
-      .onConflict((oc) => oc.column('id').doNothing())
+      .onConflict((oc) => oc.column('table_name').doNothing())
       .execute();
 
     logger.info('System configuration data seeded successfully');
@@ -74,9 +70,11 @@ export const userRolesSeed: SeedData = {
     // This will serve as a template for user registration
     await db.insertInto('notification_preferences')
       .values({
-        id: 'default_preferences_template',
         user_id: '_TEMPLATE_', // Special template user
-        preferences: JSON.stringify({
+        notification_type: 'default',
+        channel: 'all',
+        is_enabled: true,
+        settings: JSON.stringify({
           email_notifications: true,
           push_notifications: true,
           mentions: true,
@@ -87,7 +85,7 @@ export const userRolesSeed: SeedData = {
           digest_frequency: 'daily'
         })
       })
-      .onConflict((oc) => oc.column('user_id').doNothing())
+      .onConflict((oc) => oc.columns(['user_id', 'notification_type', 'channel']).doNothing())
       .execute();
 
     logger.info('Default user roles seeded successfully');
@@ -110,19 +108,16 @@ export const essentialCategoriesSeed: SeedData = {
     await db.insertInto('categories')
       .values([
         {
-          id: 1,
           name: 'Documentation',
           description: 'Technical documentation and guides',
           color: '#3b82f6'
         },
         {
-          id: 2,
           name: 'System',
           description: 'System-related pages and configurations',
           color: '#6b7280'
         },
         {
-          id: 3,
           name: 'Help',
           description: 'Help articles and support documentation',
           color: '#10b981'
@@ -151,17 +146,14 @@ export const essentialTagsSeed: SeedData = {
     await db.insertInto('tags')
       .values([
         {
-          id: 1,
           name: 'system',
           color: '#6b7280'
         },
         {
-          id: 2,
           name: 'maintenance',
           color: '#f59e0b'
         },
         {
-          id: 3,
           name: 'security',
           color: '#ef4444'
         }
@@ -173,17 +165,14 @@ export const essentialTagsSeed: SeedData = {
     await db.insertInto('wiki_tags')
       .values([
         {
-          id: 1,
           name: 'system',
           color: '#6b7280'
         },
         {
-          id: 2,
           name: 'documentation',
           color: '#3b82f6'
         },
         {
-          id: 3,
           name: 'help',
           color: '#10b981'
         }
@@ -211,42 +200,34 @@ export const featureFlagsSeed: SeedData = {
     await db.insertInto('feature_flags')
       .values([
         {
-          id: 'advanced_analytics',
           flag_name: 'advanced_analytics',
           description: 'Enable advanced analytics and reporting features',
           is_enabled: false,
           rollout_percentage: 0,
-          target_users: '[]',
           conditions: '{}',
           created_by: 'system'
         },
         {
-          id: 'real_time_collaboration',
           flag_name: 'real_time_collaboration',
           description: 'Enable real-time collaboration features',
           is_enabled: true, // This can be enabled by default
           rollout_percentage: 100,
-          target_users: '[]',
           conditions: '{}',
           created_by: 'system'
         },
         {
-          id: 'advanced_search',
           flag_name: 'advanced_search',
           description: 'Enable advanced search capabilities',
           is_enabled: true, // This can be enabled by default
           rollout_percentage: 100,
-          target_users: '[]',
           conditions: '{}',
           created_by: 'system'
         },
         {
-          id: 'beta_features',
           flag_name: 'beta_features',
           description: 'Enable beta features for testing',
           is_enabled: false,
           rollout_percentage: 0,
-          target_users: '[]',
           conditions: '{}',
           created_by: 'system'
         }

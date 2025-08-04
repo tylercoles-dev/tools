@@ -22,9 +22,7 @@ A comprehensive wiki server implementation using the Model Context Protocol (MCP
 - **Auto-excerpts**: Automatic summary generation
 
 ### Database Support
-- **SQLite**: Default, with FTS5 full-text search
-- **PostgreSQL**: Full support with tsvector search ⚠️ (implementation pending)
-- **MySQL**: Basic support ⚠️ (implementation pending)
+- **PostgreSQL**: Full support with tsvector search
 
 ### MCP Integration
 - **Tools**: Complete CRUD operations for all entities
@@ -57,11 +55,10 @@ PORT=3003
 HOST=localhost
 
 # Database configuration
-DB_TYPE=sqlite                    # sqlite, postgres, mysql
-DB_FILE=./wiki.db                # SQLite file path
-DATABASE_URL=                    # Connection string for PostgreSQL/MySQL
+DB_TYPE=postgresql
+DATABASE_URL=postgresql://username:password@localhost:5432/wiki_db
 
-# PostgreSQL/MySQL specific
+# PostgreSQL specific
 DB_HOST=localhost
 DB_PORT=5432
 DB_USER=wiki
@@ -246,7 +243,6 @@ npm run clean && npm run build
 
 ### Database Improvements
 - [ ] PostgreSQL full implementation
-- [ ] MySQL full implementation
 - [ ] Database migrations system
 - [ ] Performance optimizations
 - [ ] Backup/restore utilities

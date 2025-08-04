@@ -17,7 +17,7 @@ A comprehensive Model Context Protocol (MCP) server that manages kanban boards w
 - **Resources**: Real-time board data, statistics, and analytics
 - **Prompts**: Pre-built workflows for project setup, daily standups, and sprint planning
 - **HTTP Transport**: RESTful API with session management
-- **Database Agnostic**: Support for SQLite, PostgreSQL, and MySQL
+- **PostgreSQL Database**: Enterprise-grade PostgreSQL backend with UUID primary keys
 
 ### 🎨 **Web Interface**
 - **Responsive Design**: Modern React UI that works on desktop and mobile
@@ -60,15 +60,9 @@ npm run dev
 
 ### 🗄️ **Database Setup**
 
-The server supports multiple database types:
+The server uses PostgreSQL database:
 
-#### SQLite (Default - No setup required)
-```bash
-# Uses ./kanban.db file automatically
-npm run db:migrate
-```
-
-#### PostgreSQL
+#### PostgreSQL Setup
 ```bash
 # Set environment variables
 export DATABASE_TYPE=postgres
@@ -78,19 +72,6 @@ export DATABASE_URL="postgresql://user:password@localhost:5432/kanban"
 npm run db:migrate
 ```
 
-#### MySQL
-```bash
-# Set environment variables  
-export DATABASE_TYPE=mysql
-export DATABASE_URL="mysql://user:password@localhost:3306/kanban"
-
-# Initialize database
-# Install server dependencies
-npm install
-
-# Install frontend dependencies
-npm run frontend:install
-```
 
 #### 2. Configure Database
 
@@ -100,23 +81,12 @@ Copy the example environment file and configure your database:
 cp .env.example .env
 ```
 
-**For SQLite (default):**
-```env
-DB_TYPE=sqlite
-DB_FILE=./kanban.db
-```
-
-**For PostgreSQL:**
+**PostgreSQL Configuration:**
 ```env
 DB_TYPE=postgres
 DATABASE_URL=postgresql://username:password@localhost:5432/kanban_db
 ```
 
-**For MySQL:**
-```env
-DB_TYPE=mysql
-DATABASE_URL=mysql://username:password@localhost:3306/kanban_db
-```
 
 #### 3. Start Development
 
@@ -301,9 +271,8 @@ The project includes multiple Docker Compose configurations for different enviro
 
 | File | Purpose | Database | Use Case |
 |------|---------|----------|----------|
-| `docker-compose.yml` | Development | SQLite | Local development with hot reload |
+| `docker-compose.yml` | Development | PostgreSQL | Local development with hot reload |
 | `docker-compose.prod.yml` | Production | PostgreSQL | Production with Nginx, Redis |
-| `docker-compose.mysql.yml` | MySQL | MySQL | Alternative database option |
 
 ### **Development Environment**
 
@@ -324,7 +293,7 @@ docker-compose down
 ```
 
 **Features:**
-- ✅ SQLite database (no external dependencies)
+- ✅ PostgreSQL database with full feature support
 - ✅ Hot reload for both frontend and backend
 - ✅ Node.js debugging enabled on port 9229
 - ✅ Volume mounts for live code changes
@@ -355,25 +324,6 @@ docker-compose -f docker-compose.prod.yml down
 - ✅ Health checks and automatic restarts
 - ✅ Production-ready logging and monitoring
 
-### **MySQL Environment**
-
-Alternative setup using MySQL with phpMyAdmin:
-
-```bash
-# Quick start
-make mysql
-
-# Manual start
-docker-compose -f docker-compose.mysql.yml up -d
-
-# Access phpMyAdmin: http://localhost:8080
-```
-
-**Features:**
-- ✅ MySQL 8.0 with UTF8MB4 support
-- ✅ phpMyAdmin for database management
-- ✅ Optimized MySQL configuration
-- ✅ Persistent data volumes
 
 ### **Docker Commands Reference**
 
@@ -383,7 +333,6 @@ Use the included Makefile for convenient Docker operations:
 # Environment management
 make dev          # Start development environment
 make prod         # Start production environment
-make mysql        # Start MySQL environment
 
 # Logs and monitoring
 make logs         # View all logs
@@ -394,9 +343,7 @@ make stats        # Show container resource usage
 
 # Database operations
 make db-shell-postgres    # Connect to PostgreSQL
-make db-shell-mysql      # Connect to MySQL
 make db-backup-postgres  # Backup PostgreSQL
-make db-backup-mysql     # Backup MySQL
 
 # Development tools
 make shell        # Shell access to app container
@@ -436,9 +383,8 @@ REDIS_URL=redis://redis:6379
 
 All configurations use Docker volumes for persistent data:
 
-- **Development**: `kanban_data` (SQLite database)
+- **Development**: `postgres_data` (PostgreSQL database)
 - **Production**: `postgres_data`, `redis_data`, `nginx_logs`
-- **MySQL**: `mysql_data`
 
 ### **Health Monitoring**
 
@@ -499,9 +445,6 @@ docker-compose -f docker-compose.prod.yml up -d
 ```bash
 # PostgreSQL
 make db-backup-postgres
-
-# MySQL
-make db-backup-mysql
 
 # Restore PostgreSQL
 docker-compose -f docker-compose.prod.yml exec postgres \
@@ -575,7 +518,7 @@ NODE_ENV=production
 PORT=3001
 HOST=0.0.0.0
 
-# Use PostgreSQL or MySQL for production
+# Use PostgreSQL for production
 DB_TYPE=postgres
 DATABASE_URL=postgresql://user:pass@db.example.com:5432/kanban
 ```
@@ -710,7 +653,7 @@ npm run frontend:typecheck
 
 **1. Database optimization:**
 - Add indexes for frequently queried columns
-- Use connection pooling for PostgreSQL/MySQL
+- Use connection pooling for PostgreSQL
 - Consider read replicas for high traffic
 
 **2. Frontend optimization:**
