@@ -979,7 +979,7 @@ export class KanbanService {
       .values({
         id: randomUUID(),
         ...input,
-        is_billable: input.is_billable ? 1 : 0, // Convert boolean to integer for SQLite
+        is_billable: input.is_billable || false,
         created_at: now,
         updated_at: now
       })
