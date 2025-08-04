@@ -625,7 +625,7 @@ export const initialSchemaComplete: Migration = {
     await db.schema
       .createTable('data_retention_policies')
       .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
-      .addColumn('table_name', 'text', (col) => col.notNull())
+      .addColumn('table_name', 'text', (col) => col.notNull().unique())
       .addColumn('retention_days', 'integer', (col) => col.notNull())
       .addColumn('conditions', 'jsonb', (col) => col.defaultTo('{}'))
       .addColumn('is_active', 'boolean', (col) => col.defaultTo(true))
