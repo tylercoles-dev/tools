@@ -198,9 +198,7 @@ The wiki uses a normalized relational schema:
 ```
 src/
 ├── database/           # Database layer
-│   ├── index.ts       # Main database class
-│   ├── schema.sql     # SQLite schema
-│   └── schema.postgres.sql
+│   └── index.ts       # Database connection and utilities
 ├── services/          # Business logic
 │   └── WikiService.ts
 ├── tools/             # MCP tools

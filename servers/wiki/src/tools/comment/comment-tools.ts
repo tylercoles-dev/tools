@@ -1,4 +1,5 @@
 import { MCPServer } from '@tylercoles/mcp-server';
+import { z } from 'zod';
 import { WikiService } from '../../services/WikiService.js';
 
 export function registerCommentTools(server: MCPServer, wikiService: WikiService): void {
@@ -8,16 +9,9 @@ export function registerCommentTools(server: MCPServer, wikiService: WikiService
     {
       title: 'Get Page Comments',
       description: 'Retrieve all comments for a specific wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          page_id: {
-            type: 'number',
-            description: 'ID of the page to get comments for',
-          },
-        },
-        required: ['page_id'],
-      },
+      argsSchema: z.object({
+        page_id: z.number().describe('ID of the page to get comments for'),
+      }),
     },
     async (args: any) => {
       try {
@@ -53,28 +47,12 @@ export function registerCommentTools(server: MCPServer, wikiService: WikiService
     {
       title: 'Add Comment',
       description: 'Add a comment to a wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          page_id: {
-            type: 'number',
-            description: 'ID of the page to comment on',
-          },
-          content: {
-            type: 'string',
-            description: 'Content of the comment',
-          },
-          author: {
-            type: 'string',
-            description: 'Author of the comment',
-          },
-          parent_id: {
-            type: 'number',
-            description: 'ID of parent comment for replies',
-          },
-        },
-        required: ['page_id', 'content'],
-      },
+      argsSchema: z.object({
+        page_id: z.number().describe('ID of the page to comment on'),
+        content: z.string().describe('Content of the comment'),
+        author: z.string().optional().describe('Author of the comment'),
+        parent_id: z.number().optional().describe('ID of parent comment for replies'),
+      }),
     },
     async (args: any) => {
       try {
@@ -105,16 +83,9 @@ export function registerCommentTools(server: MCPServer, wikiService: WikiService
     {
       title: 'Delete Comment',
       description: 'Delete a comment from a wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          comment_id: {
-            type: 'number',
-            description: 'ID of the comment to delete',
-          },
-        },
-        required: ['comment_id'],
-      },
+      argsSchema: z.object({
+        comment_id: z.number().describe('ID of the comment to delete'),
+      }),
     },
     async (args: any) => {
       try {

@@ -9,16 +9,9 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Get Pages',
       description: 'Retrieve all wiki pages with optional filtering',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          published_only: {
-            type: 'boolean',
-            description: 'Only return published pages',
-            default: false,
-          },
-        },
-      },
+      argsSchema: z.object({
+        published_only: z.boolean().optional().default(false).describe('Only return published pages'),
+      }),
     },
     async (args: any) => {
       try {
@@ -53,16 +46,9 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Get Page',
       description: 'Retrieve a specific wiki page by ID',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          page_id: {
-            type: 'number',
-            description: 'ID of the page to retrieve',
-          },
-        },
-        required: ['page_id'],
-      },
+      argsSchema: z.object({
+        page_id: z.number().describe('ID of the page to retrieve'),
+      }),
     },
     async (args: any) => {
       try {
@@ -103,16 +89,9 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Get Page by Slug',
       description: 'Retrieve a specific wiki page by its slug',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          slug: {
-            type: 'string',
-            description: 'Slug of the page to retrieve',
-          },
-        },
-        required: ['slug'],
-      },
+      argsSchema: z.object({
+        slug: z.string().describe('Slug of the page to retrieve'),
+      }),
     },
     async (args: any) => {
       try {
@@ -153,47 +132,16 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Create Page',
       description: 'Create a new wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          title: {
-            type: 'string',
-            description: 'Title of the page',
-          },
-          content: {
-            type: 'string',
-            description: 'Markdown content of the page',
-          },
-          summary: {
-            type: 'string',
-            description: 'Optional summary/excerpt of the page',
-          },
-          category_ids: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Array of category IDs to assign to the page',
-          },
-          tag_names: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of tag names to assign to the page',
-          },
-          is_published: {
-            type: 'boolean',
-            description: 'Whether the page should be published',
-            default: true,
-          },
-          parent_id: {
-            type: 'number',
-            description: 'ID of parent page for hierarchical organization',
-          },
-          created_by: {
-            type: 'string',
-            description: 'Username or identifier of the page creator',
-          },
-        },
-        required: ['title', 'content'],
-      },
+      argsSchema: z.object({
+        title: z.string().describe('Title of the page'),
+        content: z.string().describe('Markdown content of the page'),
+        summary: z.string().optional().describe('Optional summary/excerpt of the page'),
+        category_ids: z.array(z.number()).optional().describe('Array of category IDs to assign to the page'),
+        tag_names: z.array(z.string()).optional().describe('Array of tag names to assign to the page'),
+        is_published: z.boolean().optional().default(true).describe('Whether the page should be published'),
+        parent_id: z.number().optional().describe('ID of parent page for hierarchical organization'),
+        created_by: z.string().optional().describe('Username or identifier of the page creator'),
+      }),
     },
     async (args: any) => {
       try {
@@ -223,54 +171,18 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Update Page',
       description: 'Update an existing wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          page_id: {
-            type: 'number',
-            description: 'ID of the page to update',
-          },
-          title: {
-            type: 'string',
-            description: 'New title of the page',
-          },
-          content: {
-            type: 'string',
-            description: 'New markdown content of the page',
-          },
-          summary: {
-            type: 'string',
-            description: 'New summary/excerpt of the page',
-          },
-          category_ids: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Array of category IDs to assign to the page',
-          },
-          tag_names: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Array of tag names to assign to the page',
-          },
-          is_published: {
-            type: 'boolean',
-            description: 'Whether the page should be published',
-          },
-          parent_id: {
-            type: 'number',
-            description: 'ID of parent page for hierarchical organization',
-          },
-          updated_by: {
-            type: 'string',
-            description: 'Username or identifier of the person updating the page',
-          },
-          change_reason: {
-            type: 'string',
-            description: 'Reason for the change (for version history)',
-          },
-        },
-        required: ['page_id'],
-      },
+      argsSchema: z.object({
+        page_id: z.number().describe('ID of the page to update'),
+        title: z.string().optional().describe('New title of the page'),
+        content: z.string().optional().describe('New markdown content of the page'),
+        summary: z.string().optional().describe('New summary/excerpt of the page'),
+        category_ids: z.array(z.number()).optional().describe('Array of category IDs to assign to the page'),
+        tag_names: z.array(z.string()).optional().describe('Array of tag names to assign to the page'),
+        is_published: z.boolean().optional().describe('Whether the page should be published'),
+        parent_id: z.number().optional().describe('ID of parent page for hierarchical organization'),
+        updated_by: z.string().optional().describe('Username or identifier of the person updating the page'),
+        change_reason: z.string().optional().describe('Reason for the change (for version history)'),
+      }),
     },
     async (args: any) => {
       try {
@@ -301,16 +213,9 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Delete Page',
       description: 'Delete a wiki page',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          page_id: {
-            type: 'number',
-            description: 'ID of the page to delete',
-          },
-        },
-        required: ['page_id'],
-      },
+      argsSchema: z.object({
+        page_id: z.number().describe('ID of the page to delete'),
+      }),
     },
     async (args: any) => {
       try {
@@ -341,10 +246,7 @@ export function registerPageTools(server: MCPServer, wikiService: WikiService): 
     {
       title: 'Get Navigation Tree',
       description: 'Get hierarchical navigation tree of all pages',
-      argsSchema: {
-        type: 'object',
-        properties: {},
-      },
+      argsSchema: z.object({}),
     },
     async (args: any) => {
       try {

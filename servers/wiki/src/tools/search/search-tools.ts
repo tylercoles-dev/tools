@@ -1,4 +1,5 @@
 import { MCPServer } from '@tylercoles/mcp-server';
+import { z } from 'zod';
 import { WikiService } from '../../services/WikiService.js';
 
 export function registerSearchTools(server: MCPServer, wikiService: WikiService): void {
@@ -8,40 +9,14 @@ export function registerSearchTools(server: MCPServer, wikiService: WikiService)
     {
       title: 'Search Pages',
       description: 'Search wiki pages by content, title, or metadata',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'Search query text',
-          },
-          category_id: {
-            type: 'number',
-            description: 'Filter by category ID',
-          },
-          tag_names: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Filter by tag names',
-          },
-          include_drafts: {
-            type: 'boolean',
-            description: 'Include unpublished draft pages in results',
-            default: false,
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return',
-            default: 50,
-          },
-          offset: {
-            type: 'number',
-            description: 'Number of results to skip (for pagination)',
-            default: 0,
-          },
-        },
-        required: ['query'],
-      },
+      argsSchema: z.object({
+        query: z.string().describe('Search query text'),
+        category_id: z.number().optional().describe('Filter by category ID'),
+        tag_names: z.array(z.string()).optional().describe('Filter by tag names'),
+        include_drafts: z.boolean().optional().default(false).describe('Include unpublished draft pages in results'),
+        limit: z.number().optional().default(50).describe('Maximum number of results to return'),
+        offset: z.number().optional().default(0).describe('Number of results to skip (for pagination)'),
+      }),
     },
     async (args: any) => {
       try {
@@ -76,10 +51,7 @@ export function registerSearchTools(server: MCPServer, wikiService: WikiService)
     {
       title: 'Get Wiki Statistics',
       description: 'Get comprehensive statistics about the wiki',
-      argsSchema: {
-        type: 'object',
-        properties: {},
-      },
+      argsSchema: z.object({}),
     },
     async (args: any) => {
       try {

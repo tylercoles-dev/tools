@@ -1,4 +1,5 @@
 import { MCPServer } from '@tylercoles/mcp-server';
+import { z } from 'zod';
 import { WikiService } from '../../services/WikiService.js';
 
 export function registerCategoryTools(server: MCPServer, wikiService: WikiService): void {
@@ -8,10 +9,7 @@ export function registerCategoryTools(server: MCPServer, wikiService: WikiServic
     {
       title: 'Get Categories',
       description: 'Retrieve all wiki categories',
-      argsSchema: {
-        type: 'object',
-        properties: {},
-      },
+      argsSchema: z.object({}),
     },
     async (args: any) => {
       try {
@@ -45,25 +43,11 @@ export function registerCategoryTools(server: MCPServer, wikiService: WikiServic
     {
       title: 'Create Category',
       description: 'Create a new wiki category',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Name of the category',
-          },
-          description: {
-            type: 'string',
-            description: 'Description of the category',
-          },
-          color: {
-            type: 'string',
-            description: 'Color code for the category (hex format, e.g., #ff0000)',
-            pattern: '^#[0-9A-Fa-f]{6}$',
-          },
-        },
-        required: ['name'],
-      },
+      argsSchema: z.object({
+        name: z.string().describe('Name of the category'),
+        description: z.string().optional().describe('Description of the category'),
+        color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe('Color code for the category (hex format, e.g., #ff0000)'),
+      }),
     },
     async (args: any) => {
       try {

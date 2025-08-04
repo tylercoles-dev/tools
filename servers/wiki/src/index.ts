@@ -4,6 +4,7 @@ import { MCPServer, LogLevel } from '@tylercoles/mcp-server';
 import { HttpTransport } from '@tylercoles/mcp-transport-http';
 import { WikiDatabase, DatabaseConfig } from './database/index.js';
 import { registerTools } from './tools/index.js';
+import { z } from 'zod';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -230,21 +231,10 @@ async function createWikiServer() {
   server.registerPrompt('create_knowledge_base', {
     title: 'Create Knowledge Base',
     description: 'Create a structured knowledge base with categories and initial pages',
-    argsSchema: {
-      type: 'object',
-      properties: {
-        topic: {
-          type: 'string',
-          description: 'Main topic or subject of the knowledge base'
-        },
-        categories: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'List of categories to create'
-        }
-      },
-      required: ['topic']
-    },
+    argsSchema: z.object({
+      topic: z.string().describe('Main topic or subject of the knowledge base'),
+      categories: z.array(z.string()).optional().describe('List of categories to create'),
+    }),
   }, (args: any) => {
     const { topic, categories = [] } = args;
     return {
@@ -263,10 +253,7 @@ async function createWikiServer() {
   server.registerPrompt('wiki_maintenance', {
     title: 'Wiki Maintenance Report',
     description: 'Generate a maintenance report for the wiki',
-    argsSchema: {
-      type: 'object',
-      properties: {},
-    },
+    argsSchema: z.object({}),
   }, (args: any) => {
     return {
       messages: [

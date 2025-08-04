@@ -1,4 +1,5 @@
 import { MCPServer } from '@tylercoles/mcp-server';
+import { z } from 'zod';
 import { WikiService } from '../../services/WikiService.js';
 
 export function registerTagTools(server: MCPServer, wikiService: WikiService): void {
@@ -8,10 +9,7 @@ export function registerTagTools(server: MCPServer, wikiService: WikiService): v
     {
       title: 'Get Tags',
       description: 'Retrieve all wiki tags',
-      argsSchema: {
-        type: 'object',
-        properties: {},
-      },
+      argsSchema: z.object({}),
     },
     async (args: any) => {
       try {
@@ -45,21 +43,10 @@ export function registerTagTools(server: MCPServer, wikiService: WikiService): v
     {
       title: 'Create Tag',
       description: 'Create a new wiki tag',
-      argsSchema: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Name of the tag',
-          },
-          color: {
-            type: 'string',
-            description: 'Color code for the tag (hex format, e.g., #ff0000)',
-            pattern: '^#[0-9A-Fa-f]{6}$',
-          },
-        },
-        required: ['name'],
-      },
+      argsSchema: z.object({
+        name: z.string().describe('Name of the tag'),
+        color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().describe('Color code for the tag (hex format, e.g., #ff0000)'),
+      }),
     },
     async (args: any) => {
       try {

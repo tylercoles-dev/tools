@@ -23,7 +23,7 @@ RUN cd core && npm install --ignore-scripts
 COPY core/src ./core/src
 RUN cd core && npm run build
 
-# Install the core package locally
+# Pack and install the core package locally
 RUN cd core && npm pack
 RUN npm install ./core/mcp-tools-core-1.0.0.tgz --ignore-scripts
 
@@ -56,12 +56,15 @@ RUN adduser --system --uid 1001 mcp
 
 WORKDIR /app
 
+# Copy the packed core package from build stage
+COPY --from=base --chown=mcp:nodejs /app/core/mcp-tools-core-1.0.0.tgz ./
+
 # Install kanban dependencies (production only)
 COPY servers/kanban/package*.json ./
 RUN npm install --production --ignore-scripts
 
-# Copy the installed core package from build stage
-COPY --from=base --chown=mcp:nodejs /app/node_modules/@mcp-tools ./node_modules/@mcp-tools
+# Install the core package in production
+RUN npm install ./mcp-tools-core-1.0.0.tgz --omit=dev
 
 # Copy built application
 COPY --from=base --chown=mcp:nodejs /app/dist ./dist
